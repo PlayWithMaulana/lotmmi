@@ -1,0 +1,44 @@
+{
+  "parent": "minecraft:recipes/root",
+  "rewards": {
+    "recipes": [
+      "lotmmi:awakened_creeping_hunger"
+    ]
+  },
+  "criteria": {
+    "has_creeping_hunger": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "lotmmi:creeping_hunger"
+            ]
+          }
+        ]
+      }
+    },
+    "has_characteristic": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "lotmcraft:cataclysmic_interrer_characteristic",
+              "lotmcraft:manipulator_characteristic",
+              "lotmcraft:unshadowed_characteristic"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_creeping_hunger"
+    ],
+    [
+      "has_characteristic"
+    ]
+  ]
+}

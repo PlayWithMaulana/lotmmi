@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "PPP",
+    "PCP",
+    "PPP"
+  ],
+  "key": {
+    "C": {
+      "item": "lotmcraft:planeswalker_characteristic"
+    },
+    "P": {
+      "item": "lotmcraft:one_pound"
+    }
+  },
+  "result": {
+    "id": "lotmmi:staff_of_the_stars",
+    "count": 1
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "TPV",
+    "PHP",
+    "PSP"
+  ],
+  "key": {
+    "T": {
+      "item": "lotmcraft:cataclysmic_interrer_characteristic"
+    },
+    "V": {
+      "item": "lotmcraft:manipulator_characteristic"
+    },
+    "S": {
+      "item": "lotmcraft:unshadowed_characteristic"
+    },
+    "H": {
+      "item": "lotmmi:creeping_hunger"
+    },
+    "P": {
+      "item": "lotmcraft:one_pound"
+    }
+  },
+  "result": {
+    "id": "lotmmi:awakened_creeping_hunger",
+    "count": 1
+  }
+}

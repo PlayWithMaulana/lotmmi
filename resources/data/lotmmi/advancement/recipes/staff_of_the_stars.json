@@ -1,0 +1,27 @@
+{
+  "parent": "minecraft:recipes/root",
+  "rewards": {
+    "recipes": [
+      "lotmmi:staff_of_the_stars"
+    ]
+  },
+  "criteria": {
+    "has_planeswalker_characteristic": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "lotmcraft:planeswalker_characteristic"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_planeswalker_characteristic"
+    ]
+  ]
+}

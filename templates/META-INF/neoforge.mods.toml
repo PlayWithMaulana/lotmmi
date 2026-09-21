@@ -1,14 +1,14 @@
 modLoader="javafml"
 loaderVersion="[1,)"
 license="All Rights Reserved"
-issueTrackerURL="https://example.com"
+issueTrackerURL="https://github.com/PlayWithMaulana/lotmmi/issues"
 
 [[mods]]
 modId="lotmmi"
 version="1.0.0"
 displayName="LOTM Mystical Items"
-authors="You"
-description="Hand-built, canon-inspired Sealed Artifacts for LotMCraft, starting with Creeping Hunger."
+authors="Maul"
+description="An addon for LotMCraft that adds mystical items from Lord of the Mysteries"
 
 [[dependencies.lotmmi]]
     modId="neoforge"

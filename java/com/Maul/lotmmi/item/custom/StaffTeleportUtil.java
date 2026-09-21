@@ -27,7 +27,7 @@ public class StaffTeleportUtil {
 
     public enum Result { SUCCESS, RANDOM_PLACE, SPIRIT_WORLD }
 
-    public static Result attemptTypedTeleport(ServerPlayer player, double x, double y, double z) {
+    public static Result attemptTypedTeleport(ServerPlayer player, ResourceKey<Level> dimension, double x, double y, double z) {
         double roll = RANDOM.nextDouble();
 
         double randomThreshold = PanicUtil.scale(TYPED_RANDOM_CHANCE, player);
@@ -42,7 +42,9 @@ public class StaffTeleportUtil {
             PanicUtil.escalate(player);
             return Result.RANDOM_PLACE;
         } else {
-            safeTeleport((ServerLevel) player.level(), player, x, y, z);
+            ServerLevel targetLevel = player.getServer().getLevel(dimension);
+            if (targetLevel == null) targetLevel = (ServerLevel) player.level();
+            safeTeleport(targetLevel, player, x, y, z);
             return Result.SUCCESS;
         }
     }

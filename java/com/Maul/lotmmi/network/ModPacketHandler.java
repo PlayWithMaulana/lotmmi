@@ -83,18 +83,6 @@ public class ModPacketHandler {
         );
 
         registrar.playToServer(
-                StaffEntityActionPacket.TYPE,
-                StaffEntityActionPacket.STREAM_CODEC,
-                StaffEntityActionPacket::handle
-        );
-
-        registrar.playToServer(
-                StaffItemActionPacket.TYPE,
-                StaffItemActionPacket.STREAM_CODEC,
-                StaffItemActionPacket::handle
-        );
-
-        registrar.playToServer(
                 StaffSlotActionPacket.TYPE,
                 StaffSlotActionPacket.STREAM_CODEC,
                 StaffSlotActionPacket::handle
@@ -110,6 +98,18 @@ public class ModPacketHandler {
                 StaffTypedTeleportPacket.TYPE,
                 StaffTypedTeleportPacket.STREAM_CODEC,
                 StaffTypedTeleportPacket::handle
+        );
+
+        registrar.playToServer(
+                StaffEntityActionPacket.TYPE,
+                StaffEntityActionPacket.STREAM_CODEC,
+                StaffEntityActionPacket::handle
+        );
+
+        registrar.playToServer(
+                StaffItemActionPacket.TYPE,
+                StaffItemActionPacket.STREAM_CODEC,
+                StaffItemActionPacket::handle
         );
     }
 

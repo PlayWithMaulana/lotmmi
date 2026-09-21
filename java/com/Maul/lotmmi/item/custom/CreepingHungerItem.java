@@ -496,59 +496,7 @@ public class CreepingHungerItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-
-        tooltip.add(Component.literal("Sealed Artifact - The Devouring Glove")
-                .withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.BOLD));
-        tooltip.add(Component.literal("\"It is always hungry. Slay a Beyonder while wearing it and")
-                .withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
-        tooltip.add(Component.literal(" the glove gnaws their soul from their corpse, keeping a")
-                .withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
-        tooltip.add(Component.literal(" scrap of their power for itself... and for you.\"")
-                .withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
-        tooltip.add(Component.empty());
-
-        List<SoulSlot> souls = getSouls(stack);
-        tooltip.add(Component.literal("Souls held: " + souls.size() + "/" + maxSlotsFor(stack))
-                .withStyle(ChatFormatting.LIGHT_PURPLE));
-
-        for (int i = 0; i < souls.size(); i++) {
-            SoulSlot s = souls.get(i);
-            tooltip.add(Component.literal("  [" + i + "] " + s.ownerName() + " - " + s.pathway() + " Seq " + s.sequence())
-                    .withStyle(ChatFormatting.GRAY));
-        }
-
-        SoulSlot food = getFoodSoul(stack);
-        if (food != null) {
-            tooltip.add(Component.literal("Reserve (food): " + food.ownerName() + " - "
-                    + food.pathway() + " Seq " + food.sequence()).withStyle(ChatFormatting.DARK_GREEN));
-        } else {
-            tooltip.add(Component.literal("Reserve (food): empty - feed it, or it feeds on you")
-                    .withStyle(ChatFormatting.DARK_RED));
-        }
-
-        SealedArtifactData data = stack.get(de.jakob.lotm.data.ModDataComponents.SEALED_ARTIFACT_DATA.get());
-        if (data != null && !data.abilities().isEmpty()) {
-            int selected = stack.getOrDefault(de.jakob.lotm.data.ModDataComponents.SEALED_ARTIFACT_SELECTED.get(), 0);
-            if (selected < data.abilities().size()) {
-                tooltip.add(Component.literal("Selected ability: " + data.abilities().get(selected).getId())
-                        .withStyle(ChatFormatting.GOLD));
-            }
-        }
-
-        tooltip.add(Component.empty());
-        tooltip.add(Component.literal("Kill a Beyonder (either hand) to graze 3 of their abilities")
-                .withStyle(ChatFormatting.DARK_GRAY));
-        tooltip.add(Component.literal("Open the Artifact Wheel to select, right-click to cast")
-                .withStyle(ChatFormatting.DARK_GRAY));
-        tooltip.add(Component.literal("Grazing with 5 souls full stashes the soul as reserve food")
-                .withStyle(ChatFormatting.DARK_GRAY));
-        tooltip.add(Component.literal("It devours a soul once every Minecraft day - an empty")
-                .withStyle(ChatFormatting.DARK_GRAY));
-        tooltip.add(Component.literal("reserve when the clock runs out means it kills you instead")
-                .withStyle(ChatFormatting.DARK_GRAY));
-        tooltip.add(Component.literal("Hold while pressing [Item Introspect] (default G) to inspect it")
-                .withStyle(ChatFormatting.DARK_GRAY));
-        tooltip.add(Component.literal("/creepinghunger list | release <slot> | reserve <slot>")
-                .withStyle(ChatFormatting.DARK_GRAY));
+        tooltip.add(Component.literal("Mystical item corresponding to Sequence 5 Hanged Man pathway")
+                .withStyle(ChatFormatting.GRAY));
     }
 }

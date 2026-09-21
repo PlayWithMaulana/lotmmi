@@ -5,12 +5,15 @@ import com.Maul.lotmmi.network.packets.toServer.StaffRenameSlotPacket;
 import com.Maul.lotmmi.network.packets.toServer.StaffSlotActionPacket;
 import com.Maul.lotmmi.network.packets.toServer.StaffTypedTeleportPacket;
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,6 +31,10 @@ public class StaffTeleportScreen extends AbstractContainerScreen<StaffTeleportMe
     private EditBox zBox;
     private String errorMessage = null;
 
+    private final List<ResourceKey<Level>> availableDimensions = new ArrayList<>();
+    private int selectedDimensionIndex = 0;
+    private Button dimensionButton;
+
     private final List<Button> renameButtons = new ArrayList<>();
 
     private int renamingIndex = -1;
@@ -40,7 +47,7 @@ public class StaffTeleportScreen extends AbstractContainerScreen<StaffTeleportMe
         this.slotNames = menu.getSlotNames();
 
         this.imageWidth = 220;
-        this.imageHeight = 30 + slotLabels.size() * ROW_HEIGHT + 70;
+        this.imageHeight = 30 + slotLabels.size() * ROW_HEIGHT + 92;
     }
 
     @Override
@@ -49,7 +56,24 @@ public class StaffTeleportScreen extends AbstractContainerScreen<StaffTeleportMe
         this.leftPos = (this.width - this.imageWidth) / 2;
         this.topPos = (this.height - this.imageHeight) / 2;
 
-        int typedY = topPos + 34 + slotLabels.size() * ROW_HEIGHT + 6;
+        if (this.minecraft != null && this.minecraft.getConnection() != null) {
+            availableDimensions.clear();
+            availableDimensions.addAll(this.minecraft.getConnection().levels());
+            availableDimensions.sort((a, b) -> a.location().toString().compareTo(b.location().toString()));
+            if (this.minecraft.player != null) {
+                int currentIndex = availableDimensions.indexOf(this.minecraft.player.level().dimension());
+                if (currentIndex >= 0) selectedDimensionIndex = currentIndex;
+            }
+        }
+
+        int dimensionY = topPos + 34 + slotLabels.size() * ROW_HEIGHT + 6;
+        int typedY = dimensionY + 22;
+
+        dimensionButton = Button.builder(Component.literal(currentDimensionLabel()), b -> cycleDimension())
+                .bounds(leftPos + 10, dimensionY, imageWidth - 20, 18)
+                .build();
+        dimensionButton.active = !availableDimensions.isEmpty();
+        this.addRenderableWidget(dimensionButton);
 
         xBox = new EditBox(this.font, leftPos + 10, typedY, 60, 16, Component.literal("X"));
         yBox = new EditBox(this.font, leftPos + 78, typedY, 60, 16, Component.literal("Y"));
@@ -82,6 +106,17 @@ public class StaffTeleportScreen extends AbstractContainerScreen<StaffTeleportMe
             renameButtons.add(renameButton);
             this.addRenderableWidget(renameButton);
         }
+    }
+
+    private String currentDimensionLabel() {
+        if (availableDimensions.isEmpty()) return "Dimension: (unknown)";
+        return "Dimension: " + availableDimensions.get(selectedDimensionIndex).location();
+    }
+
+    private void cycleDimension() {
+        if (availableDimensions.isEmpty()) return;
+        selectedDimensionIndex = (selectedDimensionIndex + 1) % availableDimensions.size();
+        dimensionButton.setMessage(Component.literal(currentDimensionLabel()));
     }
 
     private void toggleRename(int index) {
@@ -143,8 +178,13 @@ public class StaffTeleportScreen extends AbstractContainerScreen<StaffTeleportMe
             errorMessage = "Enter valid numbers for X, Y, and Z.";
             return;
         }
+        if (availableDimensions.isEmpty()) {
+            errorMessage = "No dimension available to teleport to.";
+            return;
+        }
         errorMessage = null;
-        ModPacketHandler.sendToServer(new StaffTypedTeleportPacket(menu.isMainHand(), x, y, z));
+        String dimension = availableDimensions.get(selectedDimensionIndex).location().toString();
+        ModPacketHandler.sendToServer(new StaffTypedTeleportPacket(menu.isMainHand(), dimension, x, y, z));
     }
 
     private Double parseCoordinate(String raw) {
@@ -220,7 +260,7 @@ public class StaffTeleportScreen extends AbstractContainerScreen<StaffTeleportMe
         }
 
         int typedLabelY = listY + slotLabels.size() * ROW_HEIGHT + 6 - 12;
-        guiGraphics.drawString(this.font, "Typed coordinates (30% random, 5% Spirit World):", leftPos + 10, typedLabelY, 0xFF8A7A50, false);
+        guiGraphics.drawString(this.font, "Dimension, then X/Y/Z (30% random, 5% Spirit World):", leftPos + 10, typedLabelY, 0xFF8A7A50, false);
 
         if (errorMessage != null) {
             guiGraphics.drawCenteredString(this.font, errorMessage, leftPos + imageWidth / 2, topPos + imageHeight - 12, 0xFFFF6060);

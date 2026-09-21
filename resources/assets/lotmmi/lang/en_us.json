@@ -1,9 +1,13 @@
 {
   "item.lotmmi.creeping_hunger": "Creeping Hunger",
   "item.lotmmi.awakened_creeping_hunger": "Awakened Creeping Hunger",
-  "itemGroup.lotmmi": "Mystical Items",
+  "itemGroup.lotmmi": "Lotmmi",
   "key.lotmmi.item_introspect": "Item Introspect",
   "key.categories.lotmmi": "LotM Mystical Items",
   "gui.lotmmi.item_introspect.title": "Item Introspect",
-  "gui.lotmmi.graze_choice.title": "Choose a Power to Keep"
+  "gui.lotmmi.graze_choice.title": "Choose a Power to Keep",
+  "entity.lotmmi.qilangos": "Qilangos",
+  "item.lotmmi.staff_of_the_stars": "Staff of the Stars",
+  "effect.lotmmi.panic": "Panic",
+  "item.lotmmi.qilangos_spawn_egg": "Qilangos Spawn Egg"
 }

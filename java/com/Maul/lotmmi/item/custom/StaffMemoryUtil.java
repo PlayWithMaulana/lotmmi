@@ -1,36 +1,116 @@
 package com.Maul.lotmmi.item.custom;
 
 import com.Maul.lotmmi.data.ModDataComponents;
-import de.jakob.lotm.util.BeyonderData;
-import net.minecraft.core.HolderLookup;
+import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public class StaffMemoryUtil {
 
     public static final int MAX_WITNESS_COUNT = 10;
-    public static final int MAX_ACTIVE_ENTITY_SUMMONS = 2;
+
+    // Entity summoning: how long the wielder must stare at an entity before it can be summoned,
+    // and the stare time at which summons reach full duration (see StaffEntitySummonUtil).
+    // NOTE: placeholder values - tune to taste.
+    public static final long STARE_UNLOCK_TICKS = 10L * 20L;
+    public static final long STARE_MAX_TICKS = 60L * 20L;
+    public static final int MAX_ACTIVE_ENTITY_SUMMONS = 5;
+
+    // Item summoning: recorded library size and simultaneous conjured items.
     public static final int MAX_RECORDED_ITEMS = 20;
     public static final int MAX_ACTIVE_ITEM_SUMMONS = 20;
 
-    public static final long STARE_UNLOCK_TICKS = 20 * 20;
-    public static final long STARE_MAX_TICKS = 20 * 60 * 10;
+    private static final String KEY_ENTITY_WATCHES = "EntityWatches";
+    private static final String KEY_ACTIVE_ENTITIES = "ActiveEntitySummons";
+    private static final String KEY_RECORDED_ITEMS = "RecordedItems";
+    private static final String KEY_ACTIVE_ITEMS = "ActiveItemSummons";
 
-    public record EntityWatch(UUID sourceUUID, String entityType, String displayName, String pathway, int sequence,
-                               long watchedTicks, CompoundTag entityNbt) {}
+    // ---------------------------------------------------------------------------------------------
+    // Records
+    // ---------------------------------------------------------------------------------------------
 
-    public record ActiveEntitySummon(UUID summonedUUID, String displayName, String pathway, int sequence, long expiryTick) {}
+    /** An entity the wielder has stared at. Holds enough saved data to re-create it. */
+    public record EntityWatch(UUID sourceUUID, String entityType, CompoundTag entityNbt,
+                              String displayName, String pathway, int sequence, long watchedTicks) {
 
-    public record ActiveItemSummon(UUID trackingId, String displayName, long expiryTick) {}
+        CompoundTag toTag() {
+            CompoundTag tag = new CompoundTag();
+            tag.putUUID("SourceUUID", sourceUUID);
+            tag.putString("EntityType", entityType);
+            tag.put("EntityNbt", entityNbt.copy());
+            tag.putString("DisplayName", displayName);
+            tag.putString("Pathway", pathway);
+            tag.putInt("Sequence", sequence);
+            tag.putLong("WatchedTicks", watchedTicks);
+            return tag;
+        }
+
+        static EntityWatch fromTag(CompoundTag tag) {
+            return new EntityWatch(
+                    tag.getUUID("SourceUUID"),
+                    tag.getString("EntityType"),
+                    tag.getCompound("EntityNbt"),
+                    tag.getString("DisplayName"),
+                    tag.getString("Pathway"),
+                    tag.getInt("Sequence"),
+                    tag.getLong("WatchedTicks"));
+        }
+    }
+
+    /** An entity currently summoned by the staff. */
+    public record ActiveEntitySummon(UUID summonedUUID, String displayName, String pathway,
+                                     int sequence, long expiryTick) {
+
+        CompoundTag toTag() {
+            CompoundTag tag = new CompoundTag();
+            tag.putUUID("SummonedUUID", summonedUUID);
+            tag.putString("DisplayName", displayName);
+            tag.putString("Pathway", pathway);
+            tag.putInt("Sequence", sequence);
+            tag.putLong("ExpiryTick", expiryTick);
+            return tag;
+        }
+
+        static ActiveEntitySummon fromTag(CompoundTag tag) {
+            return new ActiveEntitySummon(
+                    tag.getUUID("SummonedUUID"),
+                    tag.getString("DisplayName"),
+                    tag.getString("Pathway"),
+                    tag.getInt("Sequence"),
+                    tag.getLong("ExpiryTick"));
+        }
+    }
+
+    /** An item currently conjured by the staff. */
+    public record ActiveItemSummon(UUID trackingId, String displayName, long expiryTick) {
+
+        CompoundTag toTag() {
+            CompoundTag tag = new CompoundTag();
+            tag.putUUID("TrackingId", trackingId);
+            tag.putString("DisplayName", displayName);
+            tag.putLong("ExpiryTick", expiryTick);
+            return tag;
+        }
+
+        static ActiveItemSummon fromTag(CompoundTag tag) {
+            return new ActiveItemSummon(
+                    tag.getUUID("TrackingId"),
+                    tag.getString("DisplayName"),
+                    tag.getLong("ExpiryTick"));
+        }
+    }
 
     private static CompoundTag get(ItemStack stack) {
         CompoundTag tag = stack.get(ModDataComponents.STAFF_MEMORY.get());
@@ -135,182 +215,144 @@ public class StaffMemoryUtil {
         removeFromWheel(stack, abilityId);
     }
 
-    public static List<EntityWatch> getEntityWatches(ItemStack stack) {
+    // ---------------------------------------------------------------------------------------------
+    // Generic list helpers
+    // ---------------------------------------------------------------------------------------------
+
+    private static List<CompoundTag> readCompoundList(ItemStack stack, String key) {
         CompoundTag root = get(stack);
-        List<EntityWatch> result = new ArrayList<>();
-        if (!root.contains("EntityWatch")) return result;
-        ListTag list = root.getList("EntityWatch", Tag.TAG_COMPOUND);
-        for (int i = 0; i < list.size(); i++) {
-            CompoundTag e = list.getCompound(i);
-            result.add(new EntityWatch(e.getUUID("SourceUUID"), e.getString("EntityType"), e.getString("DisplayName"),
-                    e.getString("Pathway"), e.getInt("Sequence"), e.getLong("WatchedTicks"), e.getCompound("EntityNBT")));
-        }
-        return result;
+        List<CompoundTag> out = new ArrayList<>();
+        if (!root.contains(key)) return out;
+        ListTag list = root.getList(key, Tag.TAG_COMPOUND);
+        for (int i = 0; i < list.size(); i++) out.add(list.getCompound(i));
+        return out;
     }
 
-    public static void addStareTicks(ItemStack stack, LivingEntity target, long ticksToAdd) {
+    private static void writeCompoundList(ItemStack stack, String key, List<CompoundTag> entries) {
         CompoundTag root = get(stack);
-        ListTag list = root.contains("EntityWatch") ? root.getList("EntityWatch", Tag.TAG_COMPOUND) : new ListTag();
-
-        for (int i = 0; i < list.size(); i++) {
-            CompoundTag e = list.getCompound(i);
-            if (e.hasUUID("SourceUUID") && e.getUUID("SourceUUID").equals(target.getUUID())) {
-                long watched = Math.min(STARE_MAX_TICKS, e.getLong("WatchedTicks") + ticksToAdd);
-                e.putLong("WatchedTicks", watched);
-                list.set(i, e);
-                root.put("EntityWatch", list);
-                save(stack, root);
-                return;
-            }
-        }
-
-        CompoundTag entry = new CompoundTag();
-        entry.putUUID("SourceUUID", target.getUUID());
-        entry.putString("EntityType", EntityType.getKey(target.getType()).toString());
-        entry.putString("DisplayName", target.getDisplayName().getString());
-        entry.putString("Pathway", BeyonderData.getPathway(target));
-        entry.putInt("Sequence", BeyonderData.getSequence(target));
-        entry.putLong("WatchedTicks", ticksToAdd);
-        CompoundTag nbt = new CompoundTag();
-        target.saveWithoutId(nbt);
-        entry.put("EntityNBT", nbt);
-        list.add(entry);
-        root.put("EntityWatch", list);
+        ListTag list = new ListTag();
+        for (CompoundTag entry : entries) list.add(entry);
+        root.put(key, list);
         save(stack, root);
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Entity watches (stared-at entities)
+    // ---------------------------------------------------------------------------------------------
+
+    public static List<EntityWatch> getEntityWatches(ItemStack stack) {
+        List<EntityWatch> out = new ArrayList<>();
+        for (CompoundTag tag : readCompoundList(stack, KEY_ENTITY_WATCHES)) {
+            if (tag.hasUUID("SourceUUID")) out.add(EntityWatch.fromTag(tag));
+        }
+        return out;
+    }
+
+    /** Adds the watch, or replaces the existing one with the same source UUID. */
+    public static void putWatch(ItemStack stack, EntityWatch watch) {
+        List<CompoundTag> entries = readCompoundList(stack, KEY_ENTITY_WATCHES);
+        entries.removeIf(tag -> tag.hasUUID("SourceUUID") && tag.getUUID("SourceUUID").equals(watch.sourceUUID()));
+        entries.add(watch.toTag());
+        writeCompoundList(stack, KEY_ENTITY_WATCHES, entries);
     }
 
     public static void removeWatch(ItemStack stack, UUID sourceUUID) {
-        CompoundTag root = get(stack);
-        if (!root.contains("EntityWatch")) return;
-        ListTag list = root.getList("EntityWatch", Tag.TAG_COMPOUND);
-        for (int i = 0; i < list.size(); i++) {
-            if (list.getCompound(i).getUUID("SourceUUID").equals(sourceUUID)) {
-                list.remove(i);
-                break;
-            }
+        List<CompoundTag> entries = readCompoundList(stack, KEY_ENTITY_WATCHES);
+        if (entries.removeIf(tag -> tag.hasUUID("SourceUUID") && tag.getUUID("SourceUUID").equals(sourceUUID))) {
+            writeCompoundList(stack, KEY_ENTITY_WATCHES, entries);
         }
-        root.put("EntityWatch", list);
-        save(stack, root);
     }
 
-    public static List<CompoundTag> getRecordedItems(ItemStack stack) {
-        CompoundTag root = get(stack);
-        List<CompoundTag> result = new ArrayList<>();
-        if (!root.contains("RecordedItems")) return result;
-        ListTag list = root.getList("RecordedItems", Tag.TAG_COMPOUND);
-        for (int i = 0; i < list.size(); i++) result.add(list.getCompound(i));
-        return result;
-    }
-
-    public static boolean addRecordedItem(ItemStack stack, CompoundTag itemEntry) {
-        CompoundTag root = get(stack);
-        ListTag list = root.contains("RecordedItems") ? root.getList("RecordedItems", Tag.TAG_COMPOUND) : new ListTag();
-        if (list.size() >= MAX_RECORDED_ITEMS) return false;
-        list.add(itemEntry);
-        root.put("RecordedItems", list);
-        save(stack, root);
-        return true;
-    }
-
-    public static void removeRecordedItem(ItemStack stack, int index) {
-        CompoundTag root = get(stack);
-        if (!root.contains("RecordedItems")) return;
-        ListTag list = root.getList("RecordedItems", Tag.TAG_COMPOUND);
-        if (index < 0 || index >= list.size()) return;
-        list.remove(index);
-        root.put("RecordedItems", list);
-        save(stack, root);
-    }
+    // ---------------------------------------------------------------------------------------------
+    // Active entity summons
+    // ---------------------------------------------------------------------------------------------
 
     public static List<ActiveEntitySummon> getActiveEntitySummons(ItemStack stack) {
-        CompoundTag root = get(stack);
-        List<ActiveEntitySummon> result = new ArrayList<>();
-        if (!root.contains("ActiveEntitySummons")) return result;
-        ListTag list = root.getList("ActiveEntitySummons", Tag.TAG_COMPOUND);
-        for (int i = 0; i < list.size(); i++) {
-            CompoundTag e = list.getCompound(i);
-            result.add(new ActiveEntitySummon(e.getUUID("SummonedUUID"), e.getString("DisplayName"),
-                    e.getString("Pathway"), e.getInt("Sequence"), e.getLong("ExpiryTick")));
+        List<ActiveEntitySummon> out = new ArrayList<>();
+        for (CompoundTag tag : readCompoundList(stack, KEY_ACTIVE_ENTITIES)) {
+            if (tag.hasUUID("SummonedUUID")) out.add(ActiveEntitySummon.fromTag(tag));
         }
-        return result;
+        return out;
     }
 
     public static void addActiveEntitySummon(ItemStack stack, ActiveEntitySummon summon) {
-        CompoundTag root = get(stack);
-        ListTag list = root.contains("ActiveEntitySummons") ? root.getList("ActiveEntitySummons", Tag.TAG_COMPOUND) : new ListTag();
-        CompoundTag entry = new CompoundTag();
-        entry.putUUID("SummonedUUID", summon.summonedUUID());
-        entry.putString("DisplayName", summon.displayName());
-        entry.putString("Pathway", summon.pathway());
-        entry.putInt("Sequence", summon.sequence());
-        entry.putLong("ExpiryTick", summon.expiryTick());
-        list.add(entry);
-        root.put("ActiveEntitySummons", list);
-        save(stack, root);
+        List<CompoundTag> entries = readCompoundList(stack, KEY_ACTIVE_ENTITIES);
+        entries.add(summon.toTag());
+        writeCompoundList(stack, KEY_ACTIVE_ENTITIES, entries);
     }
 
     public static void removeActiveEntitySummon(ItemStack stack, UUID summonedUUID) {
-        CompoundTag root = get(stack);
-        if (!root.contains("ActiveEntitySummons")) return;
-        ListTag list = root.getList("ActiveEntitySummons", Tag.TAG_COMPOUND);
-        for (int i = 0; i < list.size(); i++) {
-            if (list.getCompound(i).getUUID("SummonedUUID").equals(summonedUUID)) {
-                list.remove(i);
-                break;
-            }
+        List<CompoundTag> entries = readCompoundList(stack, KEY_ACTIVE_ENTITIES);
+        if (entries.removeIf(tag -> tag.hasUUID("SummonedUUID") && tag.getUUID("SummonedUUID").equals(summonedUUID))) {
+            writeCompoundList(stack, KEY_ACTIVE_ENTITIES, entries);
         }
-        root.put("ActiveEntitySummons", list);
-        save(stack, root);
     }
 
-    public static List<ActiveItemSummon> getActiveItemSummons(ItemStack stack) {
-        CompoundTag root = get(stack);
-        List<ActiveItemSummon> result = new ArrayList<>();
-        if (!root.contains("ActiveItemSummons")) return result;
-        ListTag list = root.getList("ActiveItemSummons", Tag.TAG_COMPOUND);
-        for (int i = 0; i < list.size(); i++) {
-            CompoundTag e = list.getCompound(i);
-            result.add(new ActiveItemSummon(e.getUUID("TrackingId"), e.getString("DisplayName"), e.getLong("ExpiryTick")));
+    // ---------------------------------------------------------------------------------------------
+    // Recorded items (library)
+    // ---------------------------------------------------------------------------------------------
+
+    public static List<CompoundTag> getRecordedItems(ItemStack stack) {
+        return readCompoundList(stack, KEY_RECORDED_ITEMS);
+    }
+
+    public static void addRecordedItem(ItemStack stack, CompoundTag entry) {
+        List<CompoundTag> entries = readCompoundList(stack, KEY_RECORDED_ITEMS);
+        if (entries.size() >= MAX_RECORDED_ITEMS) return;
+        entries.add(entry.copy());
+        writeCompoundList(stack, KEY_RECORDED_ITEMS, entries);
+    }
+
+    public static void removeRecordedItem(ItemStack stack, int index) {
+        List<CompoundTag> entries = readCompoundList(stack, KEY_RECORDED_ITEMS);
+        if (index < 0 || index >= entries.size()) return;
+        entries.remove(index);
+        writeCompoundList(stack, KEY_RECORDED_ITEMS, entries);
+    }
+
+    /**
+     * Rebuilds an item from a library entry written by StaffItemSummonUtil.processCapture
+     * (keys: ItemId, DisplayName, Count, ItemNBT). Prefers the full encoded stack (keeps components),
+     * and falls back to a plain stack of the recorded item id.
+     */
+    public static ItemStack reconstructItem(CompoundTag entry, RegistryAccess registries) {
+        if (entry.contains("ItemNBT")) {
+            Tag encoded = entry.get("ItemNBT");
+            Optional<ItemStack> parsed = ItemStack.CODEC
+                    .parse(registries.createSerializationContext(NbtOps.INSTANCE), encoded)
+                    .result();
+            if (parsed.isPresent() && !parsed.get().isEmpty()) return parsed.get();
         }
-        return result;
+
+        ResourceLocation id = ResourceLocation.tryParse(entry.getString("ItemId"));
+        if (id == null) return ItemStack.EMPTY;
+        Item item = BuiltInRegistries.ITEM.get(id);
+        if (item == Items.AIR) return ItemStack.EMPTY;
+        return new ItemStack(item, Math.max(1, entry.getInt("Count")));
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Active item summons
+    // ---------------------------------------------------------------------------------------------
+
+    public static List<ActiveItemSummon> getActiveItemSummons(ItemStack stack) {
+        List<ActiveItemSummon> out = new ArrayList<>();
+        for (CompoundTag tag : readCompoundList(stack, KEY_ACTIVE_ITEMS)) {
+            if (tag.hasUUID("TrackingId")) out.add(ActiveItemSummon.fromTag(tag));
+        }
+        return out;
     }
 
     public static void addActiveItemSummon(ItemStack stack, ActiveItemSummon summon) {
-        CompoundTag root = get(stack);
-        ListTag list = root.contains("ActiveItemSummons") ? root.getList("ActiveItemSummons", Tag.TAG_COMPOUND) : new ListTag();
-        CompoundTag entry = new CompoundTag();
-        entry.putUUID("TrackingId", summon.trackingId());
-        entry.putString("DisplayName", summon.displayName());
-        entry.putLong("ExpiryTick", summon.expiryTick());
-        list.add(entry);
-        root.put("ActiveItemSummons", list);
-        save(stack, root);
+        List<CompoundTag> entries = readCompoundList(stack, KEY_ACTIVE_ITEMS);
+        entries.add(summon.toTag());
+        writeCompoundList(stack, KEY_ACTIVE_ITEMS, entries);
     }
 
     public static void removeActiveItemSummon(ItemStack stack, UUID trackingId) {
-        CompoundTag root = get(stack);
-        if (!root.contains("ActiveItemSummons")) return;
-        ListTag list = root.getList("ActiveItemSummons", Tag.TAG_COMPOUND);
-        for (int i = 0; i < list.size(); i++) {
-            if (list.getCompound(i).getUUID("TrackingId").equals(trackingId)) {
-                list.remove(i);
-                break;
-            }
+        List<CompoundTag> entries = readCompoundList(stack, KEY_ACTIVE_ITEMS);
+        if (entries.removeIf(tag -> tag.hasUUID("TrackingId") && tag.getUUID("TrackingId").equals(trackingId))) {
+            writeCompoundList(stack, KEY_ACTIVE_ITEMS, entries);
         }
-        root.put("ActiveItemSummons", list);
-        save(stack, root);
-    }
-
-    public static ItemStack reconstructItem(CompoundTag itemData, HolderLookup.Provider registries) {
-        if (itemData.contains("ItemNBT")) {
-            var result = ItemStack.CODEC.parse(registries.createSerializationContext(net.minecraft.nbt.NbtOps.INSTANCE), itemData.get("ItemNBT"));
-            if (result.result().isPresent()) {
-                return result.result().get();
-            }
-        }
-
-        String itemId = itemData.getString("ItemId");
-        var item = BuiltInRegistries.ITEM.getOptional(net.minecraft.resources.ResourceLocation.parse(itemId));
-        return item.map(value -> new ItemStack(value, Math.max(1, itemData.getInt("Count")))).orElse(ItemStack.EMPTY);
     }
 }

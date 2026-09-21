@@ -8,14 +8,12 @@ import de.jakob.lotm.LOTMCraft;
 import de.jakob.lotm.beyonders.abilities.core.Ability;
 import de.jakob.lotm.beyonders.artifacts.SealedArtifactData;
 import de.jakob.lotm.data.ModDataComponents;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
@@ -43,7 +41,6 @@ public record OpenStaffIntrospectPacket(boolean mainHand) implements CustomPacke
     public static void handle(OpenStaffIntrospectPacket packet, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (!(context.player() instanceof ServerPlayer player)) return;
-            if (!(player.level() instanceof ServerLevel level)) return;
 
             InteractionHand hand = packet.mainHand() ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
             ItemStack stack = player.getItemInHand(hand);
@@ -71,59 +68,13 @@ public record OpenStaffIntrospectPacket(boolean mainHand) implements CustomPacke
                 }
             }
 
-            List<String> entityWatchIds = new ArrayList<>();
-            List<String> entityWatchLabels = new ArrayList<>();
-            List<Boolean> entityEligible = new ArrayList<>();
-            for (StaffMemoryUtil.EntityWatch watch : StaffMemoryUtil.getEntityWatches(stack)) {
-                boolean eligible = watch.watchedTicks() >= StaffMemoryUtil.STARE_UNLOCK_TICKS;
-                double progress = Math.min(1.0, watch.watchedTicks() / (double) StaffMemoryUtil.STARE_MAX_TICKS);
-                entityWatchIds.add(watch.sourceUUID().toString());
-                entityWatchLabels.add(watch.displayName() + " - " + watch.pathway() + " Seq " + watch.sequence()
-                        + (eligible ? " (" + Math.round(progress * 100) + "%)" : " (watching...)"));
-                entityEligible.add(eligible);
-            }
-
-            List<String> entityActiveIds = new ArrayList<>();
-            List<String> entityActiveLabels = new ArrayList<>();
-            for (StaffMemoryUtil.ActiveEntitySummon summon : StaffMemoryUtil.getActiveEntitySummons(stack)) {
-                long remainingTicks = Math.max(0, summon.expiryTick() - level.getGameTime());
-                entityActiveIds.add(summon.summonedUUID().toString());
-                entityActiveLabels.add(summon.displayName() + " - " + summon.pathway() + " Seq " + summon.sequence()
-                        + " (" + (remainingTicks / 20) + "s left)");
-            }
-
-            List<String> itemLibraryLabels = new ArrayList<>();
-            List<CompoundTag> recordedItems = StaffMemoryUtil.getRecordedItems(stack);
-            for (CompoundTag entry : recordedItems) {
-                itemLibraryLabels.add(entry.getString("DisplayName") + " x" + entry.getInt("Count"));
-            }
-
-            List<String> itemActiveIds = new ArrayList<>();
-            List<String> itemActiveLabels = new ArrayList<>();
-            for (StaffMemoryUtil.ActiveItemSummon summon : StaffMemoryUtil.getActiveItemSummons(stack)) {
-                long remainingTicks = Math.max(0, summon.expiryTick() - level.getGameTime());
-                itemActiveIds.add(summon.trackingId().toString());
-                itemActiveLabels.add(summon.displayName() + " (" + (remainingTicks / 20) + "s left)");
-            }
-
-            player.openMenu(new StaffIntrospectMenuProvider(packet.mainHand(),
-                            libraryIds, libraryLabels, wheelIds, wheelLabels,
-                            entityWatchIds, entityWatchLabels, entityEligible,
-                            entityActiveIds, entityActiveLabels, itemLibraryLabels, itemActiveIds, itemActiveLabels),
+            player.openMenu(new StaffIntrospectMenuProvider(packet.mainHand(), libraryIds, libraryLabels, wheelIds, wheelLabels),
                     buf -> {
                         buf.writeBoolean(packet.mainHand());
                         writeStrings(buf, libraryIds);
                         writeStrings(buf, libraryLabels);
                         writeStrings(buf, wheelIds);
                         writeStrings(buf, wheelLabels);
-                        writeStrings(buf, entityWatchIds);
-                        writeStrings(buf, entityWatchLabels);
-                        writeBools(buf, entityEligible);
-                        writeStrings(buf, entityActiveIds);
-                        writeStrings(buf, entityActiveLabels);
-                        writeStrings(buf, itemLibraryLabels);
-                        writeStrings(buf, itemActiveIds);
-                        writeStrings(buf, itemActiveLabels);
                     });
         });
     }
@@ -131,10 +82,5 @@ public record OpenStaffIntrospectPacket(boolean mainHand) implements CustomPacke
     private static void writeStrings(RegistryFriendlyByteBuf buf, List<String> list) {
         buf.writeVarInt(list.size());
         for (String s : list) buf.writeUtf(s);
-    }
-
-    private static void writeBools(RegistryFriendlyByteBuf buf, List<Boolean> list) {
-        buf.writeVarInt(list.size());
-        for (boolean b : list) buf.writeBoolean(b);
     }
 }

@@ -2,7 +2,9 @@ package com.Maul.lotmmi;
 
 import com.Maul.lotmmi.data.ModDataComponents;
 import com.Maul.lotmmi.effect.ModEffects;
+import com.Maul.lotmmi.entity.ModEntities;
 import com.Maul.lotmmi.gui.ModMenuTypes;
+import com.Maul.lotmmi.item.ModCreativeTabs;
 import com.Maul.lotmmi.item.ModItems;
 import com.Maul.lotmmi.loot.ModLootModifiers;
 import com.Maul.lotmmi.network.ModPacketHandler;
@@ -24,7 +26,9 @@ public class LotmMysticalItems {
     public LotmMysticalItems(IEventBus modEventBus) {
         ModDataComponents.register(modEventBus);
         ModEffects.register(modEventBus);
+        ModEntities.register(modEventBus);
         ModItems.register(modEventBus);
+        ModCreativeTabs.register(modEventBus);
         ModMenuTypes.register(modEventBus);
         ModLootModifiers.register(modEventBus);
 

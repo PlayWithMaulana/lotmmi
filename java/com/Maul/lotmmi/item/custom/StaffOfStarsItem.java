@@ -1,34 +1,35 @@
 package com.Maul.lotmmi.item.custom;
 
+import de.jakob.lotm.LOTMCraft;
+import de.jakob.lotm.beyonders.abilities.core.Ability;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.item.Tiers;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
 import java.util.Random;
 
 public class StaffOfStarsItem extends SwordItem {
 
-    private static final double WITNESS_RADIUS = 10.0D;
     private static final int WITNESS_TICK_INTERVAL = 20;
-    private static final double STARE_CONE_COSINE = 0.85D;
 
     private static final Random RANDOM = new Random();
 
     private static final double PASSIVE_TELEPORT_CHANCE = 0.001D;
-    private static final double PASSIVE_SUMMON_CHANCE = 0.0005D;
+    private static final int PANIC_RANDOM_ABILITY_MIN_AMPLIFIER = 3;
+    private static final double PANIC_RANDOM_ABILITY_CHANCE = 0.0008D;
 
     private static final int MUTATION_DURATION_TICKS = 20 * 8;
 
@@ -78,21 +79,7 @@ public class StaffOfStarsItem extends SwordItem {
         if (!isSelected) return;
         if (level.getGameTime() % WITNESS_TICK_INTERVAL != 0) return;
 
-        ServerLevel serverLevel = (ServerLevel) level;
-
-        AABB range = player.getBoundingBox().inflate(WITNESS_RADIUS);
-        Vec3 look = player.getLookAngle();
-        List<LivingEntity> nearbyEntities = serverLevel.getEntitiesOfClass(LivingEntity.class, range,
-                e -> e != player && e.isAlive());
-
-        for (LivingEntity seen : nearbyEntities) {
-            Vec3 toEntity = seen.position().subtract(player.getEyePosition()).normalize();
-            if (look.dot(toEntity) < STARE_CONE_COSINE) continue;
-            if (!player.hasLineOfSight(seen)) continue;
-            StaffMemoryUtil.addStareTicks(stack, seen, WITNESS_TICK_INTERVAL);
-        }
-
-        rollPassiveDownsides(serverLevel, player, stack);
+        rollPassiveDownsides((ServerLevel) level, player, stack);
     }
 
     private void rollPassiveDownsides(ServerLevel level, ServerPlayer player, ItemStack stack) {
@@ -106,14 +93,23 @@ public class StaffOfStarsItem extends SwordItem {
             }
         }
 
-        double summonChance = PanicUtil.scale(PASSIVE_SUMMON_CHANCE, player);
-        if (RANDOM.nextDouble() < summonChance && StaffEntitySummonUtil.canSummonMore(stack)) {
-            List<StaffMemoryUtil.EntityWatch> eligible = StaffMemoryUtil.getEntityWatches(stack).stream()
-                    .filter(w -> w.watchedTicks() >= StaffMemoryUtil.STARE_UNLOCK_TICKS)
-                    .toList();
-            if (!eligible.isEmpty()) {
-                StaffMemoryUtil.EntityWatch chosen = eligible.get(RANDOM.nextInt(eligible.size()));
-                StaffEntitySummonUtil.summon(level, player, stack, chosen);
+        if (PanicUtil.getAmplifier(player) >= PANIC_RANDOM_ABILITY_MIN_AMPLIFIER
+                && RANDOM.nextDouble() < PANIC_RANDOM_ABILITY_CHANCE) {
+            List<String> wheel = StaffMemoryUtil.getWheel(stack);
+            if (!wheel.isEmpty()) {
+                String abilityId = wheel.get(RANDOM.nextInt(wheel.size()));
+                Ability ability = LOTMCraft.abilityHandler.getById(abilityId);
+                if (ability != null) {
+                    player.sendSystemMessage(Component.literal(
+                            "The stars flicker without your command - " + ability.getName().getString() + " tears loose."
+                    ).withStyle(ChatFormatting.LIGHT_PURPLE));
+                    StaffAbilityUtil.applyStaffScaling(player, ability);
+                    try {
+                        ability.useAbility(level, player, false, false, true, false);
+                    } finally {
+                        de.jakob.lotm.util.helper.AbilityUtil.removeArtifactScaling(player);
+                    }
+                }
             }
         }
     }

@@ -49,6 +49,14 @@ public class StaffAbilityUtil {
         }
     }
 
+    public static void applyStaffScaling(ServerPlayer player, Ability ability) {
+        Map<String, Integer> requirements = ability.getRequirements();
+        if (requirements.isEmpty()) return;
+        Map.Entry<String, Integer> requirement = requirements.entrySet().iterator().next();
+        AbilityUtil.setArtifactScaling(player, requirement.getKey(),
+                Math.min(9, requirement.getValue() + POTENCY_SEQUENCE_PENALTY));
+    }
+
     public static boolean castSelected(ServerLevel level, ServerPlayer player, ItemStack stack) {
         SealedArtifactData data = stack.get(ModDataComponents.SEALED_ARTIFACT_DATA.get());
         if (data == null || data.abilities().isEmpty()) {

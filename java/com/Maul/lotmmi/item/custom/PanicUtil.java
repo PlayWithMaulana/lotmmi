@@ -18,6 +18,11 @@ public class PanicUtil {
         entity.addEffect(new MobEffectInstance(ModEffects.PANIC, DURATION_TICKS, nextAmplifier, false, true, true));
     }
 
+    public static int getAmplifier(LivingEntity entity) {
+        MobEffectInstance current = entity.getEffect(ModEffects.PANIC);
+        return current == null ? -1 : current.getAmplifier();
+    }
+
     public static double getMultiplier(LivingEntity entity) {
         MobEffectInstance current = entity.getEffect(ModEffects.PANIC);
         if (current == null) return 1.0D;

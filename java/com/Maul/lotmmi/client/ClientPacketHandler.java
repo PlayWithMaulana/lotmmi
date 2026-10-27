@@ -9,7 +9,9 @@ public class ClientPacketHandler {
     public static void syncItemIntrospect(SyncItemIntrospectPacket packet) {
         if (Minecraft.getInstance().player != null
                 && Minecraft.getInstance().player.containerMenu instanceof ItemIntrospectMenu menu) {
-            menu.applySync(packet.soulsRaw(), packet.foodRaw(), packet.abilityOrderRaw(), packet.lastFedTick());
+            menu.applySync(packet.soulsRaw(), packet.foodRaw(), packet.abilityOrderRaw(), packet.feedRemaining(),
+                    packet.prayerRemaining(), packet.activeSoul());
         }
     }
+
 }

@@ -14,16 +14,20 @@ public class ItemIntrospectMenuProvider implements MenuProvider {
     private final String soulsRaw;
     private final String foodRaw;
     private final String abilityOrderRaw;
-    private final long lastFedTick;
+    private final long feedRemaining;
+    private final long prayerRemaining;
+    private final int activeSoul;
 
     public ItemIntrospectMenuProvider(boolean mainHand, int maxSlots, String soulsRaw, String foodRaw,
-                                       String abilityOrderRaw, long lastFedTick) {
+                                       String abilityOrderRaw, long feedRemaining, long prayerRemaining, int activeSoul) {
         this.mainHand = mainHand;
         this.maxSlots = maxSlots;
         this.soulsRaw = soulsRaw;
         this.foodRaw = foodRaw;
         this.abilityOrderRaw = abilityOrderRaw;
-        this.lastFedTick = lastFedTick;
+        this.feedRemaining = feedRemaining;
+        this.prayerRemaining = prayerRemaining;
+        this.activeSoul = activeSoul;
     }
 
     @Override
@@ -33,6 +37,7 @@ public class ItemIntrospectMenuProvider implements MenuProvider {
 
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
-        return new ItemIntrospectMenu(containerId, mainHand, maxSlots, soulsRaw, foodRaw, abilityOrderRaw, lastFedTick);
+        return new ItemIntrospectMenu(containerId, mainHand, maxSlots, soulsRaw, foodRaw, abilityOrderRaw, feedRemaining,
+                prayerRemaining, activeSoul);
     }
 }

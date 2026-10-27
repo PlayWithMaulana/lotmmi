@@ -1,7 +1,9 @@
 package com.Maul.lotmmi.network.packets.toServer;
 
 import com.Maul.lotmmi.LotmMysticalItems;
+import com.Maul.lotmmi.data.ModDataComponents;
 import com.Maul.lotmmi.gui.ItemIntrospectMenuProvider;
+import com.Maul.lotmmi.item.custom.AwakenedCreepingHungerItem;
 import com.Maul.lotmmi.item.custom.CreepingHungerItem;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
@@ -36,21 +38,27 @@ public record OpenItemIntrospectPacket(boolean mainHand) implements CustomPacket
             ItemStack stack = player.getItemInHand(hand);
             if (!(stack.getItem() instanceof CreepingHungerItem item)) return;
 
+            long now = player.level().getGameTime();
             int maxSlots = item.getMaxSlots();
-            String soulsRaw = stack.getOrDefault(com.Maul.lotmmi.data.ModDataComponents.SOULS.get(), "");
-            String foodRaw = stack.getOrDefault(com.Maul.lotmmi.data.ModDataComponents.FOOD_SOUL.get(), "");
-            String abilityOrderRaw = stack.getOrDefault(com.Maul.lotmmi.data.ModDataComponents.ABILITY_ORDER.get(), "");
-            long lastFedTick = stack.getOrDefault(com.Maul.lotmmi.data.ModDataComponents.LAST_FED_TICK.get(), player.level().getGameTime());
+            String soulsRaw = stack.getOrDefault(ModDataComponents.SOULS.get(), "");
+            String foodRaw = stack.getOrDefault(ModDataComponents.FOOD_SOUL.get(), "");
+            String abilityOrderRaw = CreepingHungerItem.getActiveAbilityOrderRaw(stack);
+            long feedRemaining = CreepingHungerItem.getTicksUntilNextFeed(stack, now);
+            long prayerRemaining = AwakenedCreepingHungerItem.prayerRemainingFor(stack, now);
+            int activeSoul = CreepingHungerItem.getActiveSoulIndex(stack);
 
             player.openMenu(
-                    new ItemIntrospectMenuProvider(packet.mainHand(), maxSlots, soulsRaw, foodRaw, abilityOrderRaw, lastFedTick),
+                    new ItemIntrospectMenuProvider(packet.mainHand(), maxSlots, soulsRaw, foodRaw, abilityOrderRaw,
+                            feedRemaining, prayerRemaining, activeSoul),
                     buf -> {
                         buf.writeBoolean(packet.mainHand());
                         buf.writeVarInt(maxSlots);
                         buf.writeUtf(soulsRaw);
                         buf.writeUtf(foodRaw);
                         buf.writeUtf(abilityOrderRaw);
-                        buf.writeVarLong(lastFedTick);
+                        buf.writeVarLong(feedRemaining);
+                        buf.writeVarLong(prayerRemaining);
+                        buf.writeVarInt(activeSoul);
                     });
         });
     }

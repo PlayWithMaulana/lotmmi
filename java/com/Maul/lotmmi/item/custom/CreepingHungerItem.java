@@ -1,5 +1,6 @@
 package com.Maul.lotmmi.item.custom;
 
+import com.Maul.lotmmi.config.LotmmiConfig;
 import com.Maul.lotmmi.data.ModDataComponents;
 import de.jakob.lotm.LOTMCraft;
 import de.jakob.lotm.attachments.DoorAuthorityData;
@@ -8,6 +9,7 @@ import de.jakob.lotm.beyonders.artifacts.SealedArtifactData;
 import de.jakob.lotm.beyonders.artifacts.NegativeEffect;
 import de.jakob.lotm.beyonders.potions.BeyonderCharacteristicItem;
 import de.jakob.lotm.beyonders.potions.BeyonderCharacteristicItemHandler;
+import de.jakob.lotm.damage.ModDamageTypes;
 import de.jakob.lotm.gamerule.ModGameRules;
 import de.jakob.lotm.util.BeyonderData;
 import de.jakob.lotm.util.helper.AbilityUtil;
@@ -27,15 +29,20 @@ import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.registries.DeferredHolder;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
 public class CreepingHungerItem extends Item {
 
     public static final int MAX_SLOTS = 5;
-    public static final int ABILITIES_PER_SOUL = 3;
+    public static final int MIN_ABILITIES_PER_SOUL = 1;
+    public static final int MAX_ABILITIES_PER_SOUL = 3;
+    public static final int DEMIGOD_SEQUENCE = 4;
+    public static final String DEVOURED_TAG = "lotmmi_devoured";
 
     public static final long FEED_INTERVAL_TICKS = 24000L;
+    public static final long HUNGER_RETRY_TICKS = 1200L;
     private static final Random RANDOM = new Random();
 
     public CreepingHungerItem(Properties properties) {
@@ -116,14 +123,97 @@ public class CreepingHungerItem extends Item {
         return list;
     }
 
-    public static void setAbilityOrder(ItemStack stack, List<AbilityEntry> order) {
+    public static String serializeAbilityOrder(List<AbilityEntry> order) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < order.size(); i++) {
             if (i > 0) sb.append(",");
             AbilityEntry e = order.get(i);
             sb.append(e.id()).append(":").append(e.enabled() ? "1" : "0");
         }
-        stack.set(ModDataComponents.ABILITY_ORDER.get(), sb.toString());
+        return sb.toString();
+    }
+
+    public static void setAbilityOrder(ItemStack stack, List<AbilityEntry> order) {
+        stack.set(ModDataComponents.ABILITY_ORDER.get(), serializeAbilityOrder(order));
+    }
+
+    private static int clampActive(ItemStack glove, int soulCount) {
+        if (soulCount <= 0) return 0;
+        int stored = glove.getOrDefault(ModDataComponents.ACTIVE_SOUL.get(), 0);
+        return Math.max(0, Math.min(stored, soulCount - 1));
+    }
+
+    public static int getActiveSoulIndex(ItemStack glove) {
+        return clampActive(glove, getSouls(glove).size());
+    }
+
+    public static SoulSlot getActiveSoul(ItemStack glove) {
+        List<SoulSlot> souls = getSouls(glove);
+        if (souls.isEmpty()) return null;
+        return souls.get(clampActive(glove, souls.size()));
+    }
+
+    public static void setActiveSoul(ItemStack glove, int index) {
+        if (index < 0 || index >= getSouls(glove).size()) return;
+        glove.set(ModDataComponents.ACTIVE_SOUL.get(), index);
+        glove.set(de.jakob.lotm.data.ModDataComponents.SEALED_ARTIFACT_SELECTED.get(), 0);
+        recomputeArtifactData(glove);
+    }
+
+    private static boolean hasEnabledAbility(ItemStack glove, SoulSlot soul) {
+        return getAbilityOrder(glove).stream()
+                .anyMatch(entry -> entry.enabled() && soul.abilityIds().contains(entry.id()));
+    }
+
+    public static int cycleSoul(ItemStack glove, int direction) {
+        List<SoulSlot> souls = getSouls(glove);
+        if (souls.isEmpty()) return -1;
+
+        int current = clampActive(glove, souls.size());
+        int step = direction < 0 ? -1 : 1;
+        for (int offset = 1; offset <= souls.size(); offset++) {
+            int candidate = Math.floorMod(current + step * offset, souls.size());
+            if (!hasEnabledAbility(glove, souls.get(candidate))) continue;
+            if (candidate != current) setActiveSoul(glove, candidate);
+            return candidate;
+        }
+        return -1;
+    }
+
+    public static List<AbilityEntry> getActiveAbilityOrder(ItemStack glove) {
+        SoulSlot soul = getActiveSoul(glove);
+        if (soul == null) return new ArrayList<>();
+        return getAbilityOrder(glove).stream()
+                .filter(entry -> soul.abilityIds().contains(entry.id()))
+                .toList();
+    }
+
+    public static String getActiveAbilityOrderRaw(ItemStack glove) {
+        return serializeAbilityOrder(getActiveAbilityOrder(glove));
+    }
+
+    public static String formatPathway(String pathway) {
+        if (pathway == null || pathway.isEmpty()) return "Unknown";
+        StringBuilder sb = new StringBuilder();
+        for (String part : pathway.split("_")) {
+            if (part.isEmpty()) continue;
+            if (!sb.isEmpty()) sb.append(' ');
+            sb.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+        }
+        return sb.toString();
+    }
+
+    private static Ability resolveAbility(String id) {
+        try {
+            return LOTMCraft.abilityHandler.getById(id);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static void clearArtifactData(ItemStack glove) {
+        glove.remove(de.jakob.lotm.data.ModDataComponents.SEALED_ARTIFACT_DATA.get());
+        glove.remove(de.jakob.lotm.data.ModDataComponents.SEALED_ARTIFACT_SELECTED.get());
     }
 
     public static void recomputeArtifactData(ItemStack glove) {
@@ -146,27 +236,29 @@ public class CreepingHungerItem extends Item {
         }
         setAbilityOrder(glove, order);
 
-        List<Ability> abilities = new ArrayList<>();
-        for (AbilityEntry entry : order) {
-            if (!entry.enabled()) continue;
-            Ability ability;
-            try {
-                ability = LOTMCraft.abilityHandler.getById(entry.id());
-            } catch (Exception e) {
-                ability = null;
-            }
-            if (ability != null) abilities.add(ability);
-        }
+        int active = clampActive(glove, souls.size());
+        glove.set(ModDataComponents.ACTIVE_SOUL.get(), active);
 
-        if (abilities.isEmpty() || souls.isEmpty()) {
-            glove.remove(de.jakob.lotm.data.ModDataComponents.SEALED_ARTIFACT_DATA.get());
-            glove.remove(de.jakob.lotm.data.ModDataComponents.SEALED_ARTIFACT_SELECTED.get());
+        if (souls.isEmpty()) {
+            clearArtifactData(glove);
             return;
         }
 
-        SoulSlot fallback = souls.get(souls.size() - 1);
-        SealedArtifactData newData = new SealedArtifactData(fallback.pathway(), fallback.sequence(), abilities, tokenNegatives());
-        glove.set(de.jakob.lotm.data.ModDataComponents.SEALED_ARTIFACT_DATA.get(), newData);
+        SoulSlot activeSoul = souls.get(active);
+        List<Ability> abilities = new ArrayList<>();
+        for (AbilityEntry entry : order) {
+            if (!entry.enabled() || !activeSoul.abilityIds().contains(entry.id())) continue;
+            Ability ability = resolveAbility(entry.id());
+            if (ability != null) abilities.add(ability);
+        }
+
+        if (abilities.isEmpty()) {
+            clearArtifactData(glove);
+            return;
+        }
+
+        glove.set(de.jakob.lotm.data.ModDataComponents.SEALED_ARTIFACT_DATA.get(),
+                new SealedArtifactData(activeSoul.pathway(), activeSoul.sequence(), abilities, tokenNegatives()));
 
         int selected = glove.getOrDefault(de.jakob.lotm.data.ModDataComponents.SEALED_ARTIFACT_SELECTED.get(), 0);
         if (selected >= abilities.size()) {
@@ -175,19 +267,28 @@ public class CreepingHungerItem extends Item {
     }
 
     public static void reorderAbility(ItemStack glove, String abilityId, int direction) {
-        List<AbilityEntry> order = getAbilityOrder(glove);
-        int index = -1;
-        for (int i = 0; i < order.size(); i++) {
-            if (order.get(i).id().equals(abilityId)) { index = i; break; }
-        }
-        if (index < 0) return;
-        int target = index + (direction < 0 ? -1 : 1);
-        if (target < 0 || target >= order.size()) return;
+        SoulSlot soul = getActiveSoul(glove);
+        if (soul == null) return;
 
-        AbilityEntry a = order.get(index);
-        AbilityEntry b = order.get(target);
-        order.set(index, b);
-        order.set(target, a);
+        List<AbilityEntry> order = getAbilityOrder(glove);
+        List<Integer> visible = new ArrayList<>();
+        for (int i = 0; i < order.size(); i++) {
+            if (soul.abilityIds().contains(order.get(i).id())) visible.add(i);
+        }
+
+        int cursor = -1;
+        for (int i = 0; i < visible.size(); i++) {
+            if (order.get(visible.get(i)).id().equals(abilityId)) {
+                cursor = i;
+                break;
+            }
+        }
+        if (cursor < 0) return;
+
+        int target = cursor + (direction < 0 ? -1 : 1);
+        if (target < 0 || target >= visible.size()) return;
+
+        Collections.swap(order, visible.get(cursor), visible.get(target));
         setAbilityOrder(glove, order);
         recomputeArtifactData(glove);
     }
@@ -254,6 +355,7 @@ public class CreepingHungerItem extends Item {
 
         SoulSlot moved = souls.remove(slotIndex);
         setSouls(glove, souls);
+        shiftActiveAfterRemoval(glove, slotIndex);
         recomputeArtifactData(glove);
 
         setFoodSoul(glove, new SoulSlot(moved.pathway(), moved.sequence(),
@@ -264,27 +366,45 @@ public class CreepingHungerItem extends Item {
         ).withStyle(ChatFormatting.DARK_PURPLE));
     }
 
-    private static SoulSlot findSoulForAbility(List<SoulSlot> souls, String abilityId) {
-        for (SoulSlot soul : souls) {
-            if (soul.abilityIds().contains(abilityId)) return soul;
-        }
-        return null;
+    private static void shiftActiveAfterRemoval(ItemStack glove, int removedIndex) {
+        int active = glove.getOrDefault(ModDataComponents.ACTIVE_SOUL.get(), 0);
+        if (removedIndex < active) glove.set(ModDataComponents.ACTIVE_SOUL.get(), active - 1);
     }
 
-    protected static List<SoulSlot> prepareGrazeSlots(ServerPlayer player, ItemStack glove, LivingEntity target, int maxSlots) {
-        List<SoulSlot> souls = getSouls(glove);
-        if (souls.size() >= maxSlots) {
-
-            if (!hasFoodSoul(glove)) {
-                feedSoul(player, glove, target);
-            } else {
-                player.sendSystemMessage(Component.literal("Creeping Hunger holds " + maxSlots
-                        + " souls and its reserve is full. Release one first.")
-                        .withStyle(ChatFormatting.RED));
-            }
-            return null;
+    protected static boolean stashInReserve(ServerPlayer player, ItemStack glove, LivingEntity target, int maxSlots) {
+        if (hasFoodSoul(glove)) {
+            player.sendSystemMessage(Component.literal("Creeping Hunger holds " + maxSlots
+                    + " souls and its reserve is full. Release one first.")
+                    .withStyle(ChatFormatting.RED));
+            return false;
         }
-        return souls;
+        return feedSoul(player, glove, target);
+    }
+
+    protected static boolean passesTierRestriction(ServerPlayer player, ItemStack glove, int targetSequence, boolean awakened) {
+        if (!LotmmiConfig.RESTRICT_DEMIGOD_GRAZING.get() || targetSequence > DEMIGOD_SEQUENCE) return true;
+
+        if (awakened && targetSequence >= LotmmiConfig.AWAKENED_MIN_GRAZIABLE_SEQUENCE.get()) {
+            long held = getSouls(glove).stream().filter(soul -> soul.sequence() <= DEMIGOD_SEQUENCE).count();
+            int limit = LotmmiConfig.AWAKENED_DEMIGOD_SOULS.get();
+            if (held < limit) return true;
+
+            String message = limit == 0
+                    ? "The Awakened Creeping Hunger cannot graze a demigod's soul."
+                    : "The Awakened Creeping Hunger can only hold " + limit + " demigod soul" + (limit == 1 ? "" : "s") + ".";
+            player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.RED));
+            return false;
+        }
+
+        player.sendSystemMessage(Component.literal(awakened
+                        ? "A soul this exalted is beyond even the Awakened Creeping Hunger."
+                        : "A demigod's soul is beyond what Creeping Hunger can graze.")
+                .withStyle(ChatFormatting.RED));
+        return false;
+    }
+
+    protected static int rollAbilityCount(int min, int max) {
+        return min + RANDOM.nextInt(max - min + 1);
     }
 
     protected static List<Ability> rollAbilities(String pathway, int sequence, int wantCount, List<Ability> excluded) {
@@ -297,9 +417,7 @@ public class CreepingHungerItem extends Item {
             if (ability == null) break;
 
             excluded.add(ability);
-            if (ability.canBeCopied) {
-                granted.add(ability);
-            }
+            granted.add(ability);
         }
         return granted;
     }
@@ -314,34 +432,38 @@ public class CreepingHungerItem extends Item {
 
         player.sendSystemMessage(Component.literal(
                 "Grazed the soul of " + targetName + " (" + pathway + " Sequence " + sequence
-                        + ") - " + granted.size() + " abilities added to your Artifact Wheel."
+                        + ") - " + granted.size() + (granted.size() == 1 ? " ability" : " abilities") + " gained."
         ).withStyle(ChatFormatting.LIGHT_PURPLE));
     }
 
-    public static void grazeSoul(ServerPlayer player, LivingEntity target, ItemStack glove) {
+    public static boolean grazeSoul(ServerPlayer player, LivingEntity target, ItemStack glove) {
         if (!BeyonderData.isBeyonder(target)) {
             player.sendSystemMessage(Component.literal("This target has no soul worth grazing.")
                     .withStyle(ChatFormatting.RED));
-            return;
+            return false;
         }
-
-        List<SoulSlot> souls = prepareGrazeSlots(player, glove, target, maxSlotsFor(glove));
-        if (souls == null) return;
 
         String targetPathway = BeyonderData.getPathway(target);
         int targetSequence = BeyonderData.getSequence(target);
+        if (!passesTierRestriction(player, glove, targetSequence, false)) return false;
+
+        int maxSlots = maxSlotsFor(glove);
+        List<SoulSlot> souls = getSouls(glove);
+        if (souls.size() >= maxSlots) return stashInReserve(player, glove, target, maxSlots);
 
         List<Ability> excluded = new ArrayList<>();
-        List<Ability> granted = rollAbilities(targetPathway, targetSequence, ABILITIES_PER_SOUL, excluded);
+        int abilityCount = rollAbilityCount(MIN_ABILITIES_PER_SOUL, MAX_ABILITIES_PER_SOUL);
+        List<Ability> granted = rollAbilities(targetPathway, targetSequence, abilityCount, excluded);
 
         if (granted.isEmpty()) {
             player.sendSystemMessage(Component.literal("This soul's power resists being grazed.")
                     .withStyle(ChatFormatting.RED));
-            return;
+            return false;
         }
 
         finalizeGraze(player, glove, target.getName().getString(), target.getUUID().toString(),
                 targetPathway, targetSequence, souls, granted);
+        return true;
     }
 
     public static void releaseSoul(ServerPlayer player, ItemStack glove, int slotIndex) {
@@ -350,6 +472,7 @@ public class CreepingHungerItem extends Item {
 
         SoulSlot released = souls.remove(slotIndex);
         setSouls(glove, souls);
+        shiftActiveAfterRemoval(glove, slotIndex);
         recomputeArtifactData(glove);
 
         spitCharacteristic(player, released.pathway(), released.sequence());
@@ -435,8 +558,10 @@ public class CreepingHungerItem extends Item {
 
         SealedArtifactData data = stack.get(de.jakob.lotm.data.ModDataComponents.SEALED_ARTIFACT_DATA.get());
         if (data == null || data.abilities().isEmpty()) {
-            player.sendSystemMessage(Component.literal("Creeping Hunger holds no souls to draw power from.")
-                    .withStyle(ChatFormatting.RED));
+            String message = getSouls(stack).isEmpty()
+                    ? "Creeping Hunger holds no souls to draw power from."
+                    : "The chosen soul has no ability enabled.";
+            player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.RED));
             return InteractionResultHolder.fail(stack);
         }
 
@@ -444,8 +569,7 @@ public class CreepingHungerItem extends Item {
         if (selectedIndex >= data.abilities().size()) selectedIndex = 0;
         Ability ability = data.abilities().get(selectedIndex);
 
-        List<SoulSlot> souls = getSouls(stack);
-        SoulSlot owningSoul = findSoulForAbility(souls, ability.getId());
+        SoulSlot owningSoul = getActiveSoul(stack);
         String scalePathway = owningSoul != null ? owningSoul.pathway() : data.pathway();
         int scaleSequence = owningSoul != null ? owningSoul.sequence() : data.sequence();
         AbilityUtil.setArtifactScaling(player, scalePathway, scaleSequence);
@@ -459,6 +583,10 @@ public class CreepingHungerItem extends Item {
     public void inventoryTick(ItemStack stack, Level level, net.minecraft.world.entity.Entity entity, int slotId, boolean isSelected) {
         if (level.isClientSide || !(entity instanceof ServerPlayer player)) return;
 
+        if (!stack.has(ModDataComponents.ACTIVE_SOUL.get()) && !getSouls(stack).isEmpty()) {
+            recomputeArtifactData(stack);
+        }
+
         long lastFed = stack.getOrDefault(ModDataComponents.LAST_FED_TICK.get(), level.getGameTime());
         long ticksSinceFed = level.getGameTime() - lastFed;
 
@@ -466,7 +594,6 @@ public class CreepingHungerItem extends Item {
 
         SoulSlot food = getFoodSoul(stack);
         if (food != null) {
-
             setFoodSoul(stack, null);
             stack.set(ModDataComponents.LAST_FED_TICK.get(), level.getGameTime());
             spitCharacteristic(player, food.pathway(), food.sequence());
@@ -475,12 +602,40 @@ public class CreepingHungerItem extends Item {
                             + ") and spits out their Characteristic."
             ).withStyle(ChatFormatting.DARK_PURPLE));
         } else {
-
             player.sendSystemMessage(Component.literal(
                     "Creeping Hunger, its reserve empty, finds nothing to eat but you."
             ).withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
-            stack.set(ModDataComponents.LAST_FED_TICK.get(), level.getGameTime());
+            feedOnOwner(player, stack);
+        }
+    }
+
+    private static void feedOnOwner(ServerPlayer player, ItemStack glove) {
+        long now = player.level().getGameTime();
+        boolean beyonder = BeyonderData.isBeyonder(player);
+        boolean demigod = beyonder && BeyonderData.getSequence(player) <= DEMIGOD_SEQUENCE;
+        boolean takesCharacteristic = beyonder
+                && player.serverLevel().getGameRules().getBoolean(ModGameRules.REGRESS_SEQUENCE_ON_DEATH);
+        String pathway = beyonder ? BeyonderData.getPathway(player) : null;
+        int sequence = beyonder ? BeyonderData.getSequence(player) : 0;
+
+        if (demigod) {
             player.kill();
+        } else {
+            player.hurt(ModDamageTypes.source(player.level(), ModDamageTypes.LOOSING_CONTROL), Float.MAX_VALUE);
+        }
+
+        if (player.isAlive()) {
+            glove.set(ModDataComponents.LAST_FED_TICK.get(), now - (FEED_INTERVAL_TICKS - HUNGER_RETRY_TICKS));
+            player.sendSystemMessage(Component.literal("Creeping Hunger is still hungry.")
+                    .withStyle(ChatFormatting.DARK_RED, ChatFormatting.ITALIC));
+            return;
+        }
+
+        glove.set(ModDataComponents.LAST_FED_TICK.get(), now);
+        if (takesCharacteristic) {
+            player.getPersistentData().putLong(DEVOURED_TAG, now);
+            setFoodSoul(glove, new SoulSlot(pathway, sequence, player.getName().getString(),
+                    player.getUUID().toString(), new ArrayList<>()));
         }
     }
 
@@ -494,9 +649,12 @@ public class CreepingHungerItem extends Item {
         return false;
     }
 
+    protected String getTooltipText() {
+        return "Mystical item corresponding to Sequence 5 Hanged Man pathway";
+    }
+
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.literal("Mystical item corresponding to Sequence 5 Hanged Man pathway")
-                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.literal(getTooltipText()).withStyle(ChatFormatting.GRAY));
     }
 }

@@ -5,7 +5,6 @@ import com.Maul.lotmmi.LotmMysticalItems;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredHolder;
@@ -30,6 +29,18 @@ public class ModDataComponents {
 
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<Long>> LAST_FED_TICK =
             DATA_COMPONENT_TYPES.register("last_fed_tick", () -> DataComponentType.<Long>builder()
+                    .persistent(Codec.LONG)
+                    .networkSynchronized(ByteBufCodecs.VAR_LONG)
+                    .build());
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Integer>> ACTIVE_SOUL =
+            DATA_COMPONENT_TYPES.register("active_soul", () -> DataComponentType.<Integer>builder()
+                    .persistent(Codec.INT)
+                    .networkSynchronized(ByteBufCodecs.VAR_INT)
+                    .build());
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Long>> LAST_PRAYER_TICK =
+            DATA_COMPONENT_TYPES.register("last_prayer_tick", () -> DataComponentType.<Long>builder()
                     .persistent(Codec.LONG)
                     .networkSynchronized(ByteBufCodecs.VAR_LONG)
                     .build());

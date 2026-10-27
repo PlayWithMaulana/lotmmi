@@ -1,11 +1,18 @@
 package com.Maul.lotmmi.command;
 
+import com.Maul.lotmmi.data.ModDataComponents;
+import com.Maul.lotmmi.item.custom.AwakenedCreepingHungerItem;
+import com.Maul.lotmmi.item.custom.CreepingHungerItem;
+import com.Maul.lotmmi.network.packets.toClient.SyncItemIntrospectPacket;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
-import com.Maul.lotmmi.item.custom.CreepingHungerItem;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.TimeArgument;
+import net.minecraft.core.component.DataComponentType;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -123,7 +130,77 @@ public class CreepingHungerCommand {
                             return 1;
                         })
                 )
+                .then(timerCommand())
         );
+    }
+
+    private enum TimerKind {
+        FEED("Feeding", CreepingHungerItem.FEED_INTERVAL_TICKS, ModDataComponents.LAST_FED_TICK.get()),
+        PRAYER("Prayer", AwakenedCreepingHungerItem.PRAYER_INTERVAL_TICKS, ModDataComponents.LAST_PRAYER_TICK.get());
+
+        private final String label;
+        private final long interval;
+        private final DataComponentType<Long> component;
+
+        TimerKind(String label, long interval, DataComponentType<Long> component) {
+            this.label = label;
+            this.interval = interval;
+            this.component = component;
+        }
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> timerCommand() {
+        return Commands.literal("timer")
+                .requires(source -> source.hasPermission(2))
+                .then(timerNode("feed", TimerKind.FEED))
+                .then(timerNode("prayer", TimerKind.PRAYER));
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> timerNode(String name, TimerKind kind) {
+        return Commands.literal(name)
+                .then(Commands.literal("set")
+                        .then(Commands.argument("time", TimeArgument.time(0))
+                                .executes(context -> applyTimer(context, kind, false))))
+                .then(Commands.literal("add")
+                        .then(Commands.argument("time", TimeArgument.time(Integer.MIN_VALUE))
+                                .executes(context -> applyTimer(context, kind, true))));
+    }
+
+    private static int applyTimer(CommandContext<CommandSourceStack> context, TimerKind kind, boolean add) {
+        CommandSourceStack source = context.getSource();
+
+        if (!(source.getEntity() instanceof ServerPlayer player)) {
+            source.sendFailure(Component.literal("This command can only be used by a player."));
+            return 0;
+        }
+
+        ItemStack glove = findGlove(player);
+        if (glove.isEmpty()) {
+            source.sendFailure(Component.literal("You must be holding Creeping Hunger in your main or off hand."));
+            return 0;
+        }
+
+        if (kind == TimerKind.PRAYER && !(glove.getItem() instanceof AwakenedCreepingHungerItem)) {
+            source.sendFailure(Component.literal("Only the Awakened Creeping Hunger has a prayer timer."));
+            return 0;
+        }
+
+        int time = IntegerArgumentType.getInteger(context, "time");
+        long now = player.level().getGameTime();
+        long last = glove.getOrDefault(kind.component, now);
+        long updated = add ? last + time : now - (kind.interval - time);
+        glove.set(kind.component, updated);
+        SyncItemIntrospectPacket.sendTo(player, glove);
+
+        long remaining = Math.max(0L, updated + kind.interval - now);
+        source.sendSuccess(() -> Component.literal(kind.label + " timer " + (add ? "adjusted" : "set")
+                + ": " + formatTicks(remaining) + " remaining.").withStyle(ChatFormatting.LIGHT_PURPLE), false);
+        return 1;
+    }
+
+    private static String formatTicks(long ticks) {
+        long totalSeconds = ticks / 20;
+        return String.format("%d:%02d", totalSeconds / 60, totalSeconds % 60);
     }
 
     private static ItemStack findGlove(ServerPlayer player) {

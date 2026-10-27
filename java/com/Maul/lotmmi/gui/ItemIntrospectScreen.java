@@ -5,6 +5,7 @@ import com.Maul.lotmmi.item.custom.CreepingHungerItem;
 import com.Maul.lotmmi.network.ModPacketHandler;
 import com.Maul.lotmmi.network.packets.toServer.FeedReserveSoulPacket;
 import com.Maul.lotmmi.network.packets.toServer.ReorderAbilityPacket;
+import com.Maul.lotmmi.network.packets.toServer.SelectSoulPacket;
 import com.Maul.lotmmi.network.packets.toServer.SpewSoulPacket;
 import com.Maul.lotmmi.network.packets.toServer.ToggleAbilityPacket;
 import com.mojang.math.Axis;
@@ -12,11 +13,14 @@ import de.jakob.lotm.LOTMCraft;
 import de.jakob.lotm.beyonders.abilities.core.Ability;
 import de.jakob.lotm.beyonders.abilities.core.SelectableAbility;
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Inventory;
 
@@ -71,6 +75,7 @@ public class ItemIntrospectScreen extends AbstractContainerScreen<ItemIntrospect
     private List<CreepingHungerItem.AbilityEntry> abilityOrder = new ArrayList<>();
     private int maxSlots = CreepingHungerItem.MAX_SLOTS;
     private int abilityPage = 0;
+    private int activeSoul = 0;
 
     private int lastSeenSyncVersion = -1;
 
@@ -95,6 +100,7 @@ public class ItemIntrospectScreen extends AbstractContainerScreen<ItemIntrospect
         this.foodSoul = this.menu.getFoodSoul();
         this.abilityOrder = this.menu.getAbilityOrder();
         this.maxSlots = this.menu.getMaxSlots();
+        this.activeSoul = this.menu.getActiveSoul();
         this.lastSeenSyncVersion = this.menu.getSyncVersion();
 
         int maxPage = Math.max(0, (abilityOrder.size() - 1) / ABILITIES_PER_PAGE);
@@ -218,6 +224,21 @@ public class ItemIntrospectScreen extends AbstractContainerScreen<ItemIntrospect
     }
 
     @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0) {
+            for (int i = 0; i < souls.size(); i++) {
+                int x = soulSlotX[i];
+                if (mouseX >= x && mouseX < x + SLOT_SIZE && mouseY >= soulSlotY && mouseY < soulSlotY + SLOT_SIZE) {
+                    Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                    ModPacketHandler.sendToServer(new SelectSoulPacket(hand == InteractionHand.MAIN_HAND, i));
+                    return true;
+                }
+            }
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
     protected void containerTick() {
         super.containerTick();
 
@@ -248,6 +269,7 @@ public class ItemIntrospectScreen extends AbstractContainerScreen<ItemIntrospect
         guiGraphics.drawCenteredString(this.font, this.title, leftPos + PANEL_WIDTH / 2, topPos + 8, 0xFFC24A4A);
 
         renderSoulSlots(guiGraphics);
+        renderPrayerTimer(guiGraphics);
         renderReserveSlot(guiGraphics);
         renderClock(guiGraphics);
         renderAbilityList(guiGraphics);
@@ -268,6 +290,10 @@ public class ItemIntrospectScreen extends AbstractContainerScreen<ItemIntrospect
 
             guiGraphics.blit(active ? SOUL_SLOT_ACTIVE : SOUL_SLOT_EMPTY, x, soulSlotY, 0, 0, SLOT_SIZE, SLOT_SIZE, SLOT_SIZE, SLOT_SIZE);
 
+            if (active && i == activeSoul) {
+                guiGraphics.renderOutline(x - 1, soulSlotY - 1, SLOT_SIZE + 2, SLOT_SIZE + 2, 0xFFE0B040);
+            }
+
             if (active) {
                 CreepingHungerItem.SoulSlot soul = souls.get(i);
                 ResourceLocation icon = pathwayIcon(soul.pathway());
@@ -276,6 +302,16 @@ public class ItemIntrospectScreen extends AbstractContainerScreen<ItemIntrospect
                 guiGraphics.blit(icon, iconX, iconY, 0, 0, ICON_SIZE, ICON_SIZE, ICON_SIZE, ICON_SIZE);
             }
         }
+    }
+
+    private void renderPrayerTimer(GuiGraphics guiGraphics) {
+        long remaining = this.menu.getPrayerRemainingTicks();
+        if (remaining < 0L) return;
+
+        long totalSeconds = remaining / 20;
+        String text = String.format("Next Prayer %d:%02d", totalSeconds / 60, totalSeconds % 60);
+        int color = remaining < 20L * 60 ? 0xFFE04030 : 0xFFC24A4A;
+        guiGraphics.drawString(this.font, text, leftPos + PANEL_WIDTH - 12 - this.font.width(text), topPos + 21, color, false);
     }
 
     private void renderReserveSlot(GuiGraphics guiGraphics) {
@@ -299,8 +335,7 @@ public class ItemIntrospectScreen extends AbstractContainerScreen<ItemIntrospect
     private void renderClock(GuiGraphics guiGraphics) {
         guiGraphics.drawString(this.font, Component.literal("Next Feeding"), leftPos + 149, topPos + 84, 0xFFB0B0B0, false);
 
-        long gameTime = this.minecraft != null && this.minecraft.level != null ? this.minecraft.level.getGameTime() : 0L;
-        long remaining = CreepingHungerItem.getTicksUntilNextFeed(this.menu.getLastFedTick(), gameTime);
+        long remaining = this.menu.getFeedRemainingTicks();
 
         float progress = 1f - (float) remaining / (float) CreepingHungerItem.FEED_INTERVAL_TICKS;
         float angleDeg = progress * 360f;
@@ -323,7 +358,7 @@ public class ItemIntrospectScreen extends AbstractContainerScreen<ItemIntrospect
 
     private void renderAbilityList(GuiGraphics guiGraphics) {
         int maxPage = Math.max(0, (abilityOrder.size() - 1) / ABILITIES_PER_PAGE);
-        String header = "Abilities (Wheel Order)"
+        String header = "Abilities (Active Soul)"
                 + (abilityOrder.isEmpty() ? "" : " - page " + (abilityPage + 1) + "/" + (maxPage + 1));
         guiGraphics.drawString(this.font, header, leftPos + 12, topPos + 158, 0xFFB0B0B0, false);
 
@@ -372,7 +407,10 @@ public class ItemIntrospectScreen extends AbstractContainerScreen<ItemIntrospect
                         Component.literal(soul.ownerName()).withStyle(ChatFormatting.LIGHT_PURPLE),
                         Component.literal(formatPathway(soul.pathway()) + " - Sequence " + soul.sequence())
                                 .withStyle(ChatFormatting.GRAY),
-                        Component.literal(soul.abilityIds().size() + " abilities granted").withStyle(ChatFormatting.DARK_GRAY)
+                        Component.literal(soul.abilityIds().size() + " abilities granted").withStyle(ChatFormatting.DARK_GRAY),
+                        i == activeSoul
+                                ? Component.literal("Active soul").withStyle(ChatFormatting.GOLD)
+                                : Component.literal("Click to make this soul active").withStyle(ChatFormatting.DARK_GRAY)
                 ), mouseX, mouseY);
                 return;
             }

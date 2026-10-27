@@ -13,6 +13,7 @@ import com.Maul.lotmmi.network.packets.toServer.StaffRenameSlotPacket;
 import com.Maul.lotmmi.network.packets.toServer.StaffSlotActionPacket;
 import com.Maul.lotmmi.network.packets.toServer.StaffTypedTeleportPacket;
 import com.Maul.lotmmi.network.packets.toServer.ReorderAbilityPacket;
+import com.Maul.lotmmi.network.packets.toServer.SelectSoulPacket;
 import com.Maul.lotmmi.network.packets.toServer.SpewSoulPacket;
 import com.Maul.lotmmi.network.packets.toServer.ToggleAbilityPacket;
 import net.minecraft.client.Minecraft;
@@ -22,7 +23,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public class ModPacketHandler {
 
-    private static final String PROTOCOL_VERSION = "1";
+    private static final String PROTOCOL_VERSION = "2";
 
     public static void register(RegisterPayloadHandlersEvent event) {
         final PayloadRegistrar registrar = event.registrar(LotmMysticalItems.MOD_ID)
@@ -56,6 +57,12 @@ public class ModPacketHandler {
                 ToggleAbilityPacket.TYPE,
                 ToggleAbilityPacket.STREAM_CODEC,
                 ToggleAbilityPacket::handle
+        );
+
+        registrar.playToServer(
+                SelectSoulPacket.TYPE,
+                SelectSoulPacket.STREAM_CODEC,
+                SelectSoulPacket::handle
         );
 
         registrar.playToServer(

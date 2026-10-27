@@ -2,6 +2,8 @@ package com.Maul.lotmmi.network.packets.toClient;
 
 import com.Maul.lotmmi.LotmMysticalItems;
 import com.Maul.lotmmi.data.ModDataComponents;
+import com.Maul.lotmmi.item.custom.AwakenedCreepingHungerItem;
+import com.Maul.lotmmi.item.custom.CreepingHungerItem;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
@@ -12,7 +14,8 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-public record SyncItemIntrospectPacket(String soulsRaw, String foodRaw, String abilityOrderRaw, long lastFedTick)
+public record SyncItemIntrospectPacket(String soulsRaw, String foodRaw, String abilityOrderRaw, long feedRemaining,
+                                       long prayerRemaining, int activeSoul)
         implements CustomPacketPayload {
 
     public static final Type<SyncItemIntrospectPacket> TYPE =
@@ -22,7 +25,9 @@ public record SyncItemIntrospectPacket(String soulsRaw, String foodRaw, String a
             ByteBufCodecs.STRING_UTF8, SyncItemIntrospectPacket::soulsRaw,
             ByteBufCodecs.STRING_UTF8, SyncItemIntrospectPacket::foodRaw,
             ByteBufCodecs.STRING_UTF8, SyncItemIntrospectPacket::abilityOrderRaw,
-            ByteBufCodecs.VAR_LONG, SyncItemIntrospectPacket::lastFedTick,
+            ByteBufCodecs.VAR_LONG, SyncItemIntrospectPacket::feedRemaining,
+            ByteBufCodecs.VAR_LONG, SyncItemIntrospectPacket::prayerRemaining,
+            ByteBufCodecs.VAR_INT, SyncItemIntrospectPacket::activeSoul,
             SyncItemIntrospectPacket::new
     );
 
@@ -32,12 +37,15 @@ public record SyncItemIntrospectPacket(String soulsRaw, String foodRaw, String a
     }
 
     public static void sendTo(ServerPlayer player, ItemStack glove) {
-        String soulsRaw = glove.getOrDefault(ModDataComponents.SOULS.get(), "");
-        String foodRaw = glove.getOrDefault(ModDataComponents.FOOD_SOUL.get(), "");
-        String abilityOrderRaw = glove.getOrDefault(ModDataComponents.ABILITY_ORDER.get(), "");
-        long lastFedTick = glove.getOrDefault(ModDataComponents.LAST_FED_TICK.get(), player.level().getGameTime());
+        long now = player.level().getGameTime();
 
-        PacketDistributor.sendToPlayer(player, new SyncItemIntrospectPacket(soulsRaw, foodRaw, abilityOrderRaw, lastFedTick));
+        PacketDistributor.sendToPlayer(player, new SyncItemIntrospectPacket(
+                glove.getOrDefault(ModDataComponents.SOULS.get(), ""),
+                glove.getOrDefault(ModDataComponents.FOOD_SOUL.get(), ""),
+                CreepingHungerItem.getActiveAbilityOrderRaw(glove),
+                CreepingHungerItem.getTicksUntilNextFeed(glove, now),
+                AwakenedCreepingHungerItem.prayerRemainingFor(glove, now),
+                CreepingHungerItem.getActiveSoulIndex(glove)));
     }
 
     public static void handle(SyncItemIntrospectPacket packet, IPayloadContext context) {

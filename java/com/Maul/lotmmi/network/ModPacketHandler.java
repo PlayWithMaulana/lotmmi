@@ -3,6 +3,7 @@ package com.Maul.lotmmi.network;
 import com.Maul.lotmmi.LotmMysticalItems;
 import com.Maul.lotmmi.network.packets.toClient.SyncItemIntrospectPacket;
 import com.Maul.lotmmi.network.packets.toServer.ChooseGrazeAbilityPacket;
+import com.Maul.lotmmi.network.packets.toServer.CycleSoulPacket;
 import com.Maul.lotmmi.network.packets.toServer.FeedReserveSoulPacket;
 import com.Maul.lotmmi.network.packets.toServer.OpenItemIntrospectPacket;
 import com.Maul.lotmmi.network.packets.toServer.OpenStaffIntrospectPacket;
@@ -23,7 +24,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public class ModPacketHandler {
 
-    private static final String PROTOCOL_VERSION = "2";
+    private static final String PROTOCOL_VERSION = "3";
 
     public static void register(RegisterPayloadHandlersEvent event) {
         final PayloadRegistrar registrar = event.registrar(LotmMysticalItems.MOD_ID)
@@ -63,6 +64,12 @@ public class ModPacketHandler {
                 SelectSoulPacket.TYPE,
                 SelectSoulPacket.STREAM_CODEC,
                 SelectSoulPacket::handle
+        );
+
+        registrar.playToServer(
+                CycleSoulPacket.TYPE,
+                CycleSoulPacket.STREAM_CODEC,
+                CycleSoulPacket::handle
         );
 
         registrar.playToServer(

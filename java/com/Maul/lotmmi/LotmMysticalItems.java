@@ -25,6 +25,8 @@ public class LotmMysticalItems {
     public static final String MOD_ID = "lotmmi";
 
     public static KeyMapping itemIntrospectKey;
+    public static KeyMapping cycleSoulLeftKey;
+    public static KeyMapping cycleSoulRightKey;
 
     public LotmMysticalItems(IEventBus modEventBus, ModContainer modContainer) {
         ModDataComponents.register(modEventBus);

@@ -7,9 +7,11 @@ import com.Maul.lotmmi.gui.ModMenuTypes;
 import com.Maul.lotmmi.gui.StaffIntrospectScreen;
 import com.Maul.lotmmi.gui.StaffItemCaptureScreen;
 import com.Maul.lotmmi.gui.StaffTeleportScreen;
+import com.Maul.lotmmi.item.custom.AwakenedCreepingHungerItem;
 import com.Maul.lotmmi.item.custom.CreepingHungerItem;
 import com.Maul.lotmmi.item.custom.StaffOfStarsItem;
 import com.Maul.lotmmi.network.ModPacketHandler;
+import com.Maul.lotmmi.network.packets.toServer.CycleSoulPacket;
 import com.Maul.lotmmi.network.packets.toServer.OpenItemIntrospectPacket;
 import com.Maul.lotmmi.network.packets.toServer.OpenStaffIntrospectPacket;
 import net.minecraft.ChatFormatting;
@@ -36,8 +38,14 @@ public class ClientEvents {
     public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
         LotmMysticalItems.itemIntrospectKey = new KeyMapping(
                 "key.lotmmi.item_introspect", GLFW.GLFW_KEY_G, KEY_CATEGORY);
+        LotmMysticalItems.cycleSoulLeftKey = new KeyMapping(
+                "key.lotmmi.cycle_soul_left", GLFW.GLFW_KEY_Z, KEY_CATEGORY);
+        LotmMysticalItems.cycleSoulRightKey = new KeyMapping(
+                "key.lotmmi.cycle_soul_right", GLFW.GLFW_KEY_X, KEY_CATEGORY);
 
         event.register(LotmMysticalItems.itemIntrospectKey);
+        event.register(LotmMysticalItems.cycleSoulLeftKey);
+        event.register(LotmMysticalItems.cycleSoulRightKey);
     }
 
     @SubscribeEvent
@@ -51,6 +59,22 @@ public class ClientEvents {
 
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Post event) {
+        handleCycleKey(LotmMysticalItems.cycleSoulLeftKey, -1);
+        handleCycleKey(LotmMysticalItems.cycleSoulRightKey, 1);
+        handleIntrospectKey();
+    }
+
+    private static void handleCycleKey(KeyMapping key, int direction) {
+        if (key == null) return;
+
+        while (key.consumeClick()) {
+            Player player = Minecraft.getInstance().player;
+            if (player == null || findHeldItem(player, AwakenedCreepingHungerItem.class) == null) continue;
+            ModPacketHandler.sendToServer(new CycleSoulPacket(direction));
+        }
+    }
+
+    private static void handleIntrospectKey() {
         KeyMapping key = LotmMysticalItems.itemIntrospectKey;
         if (key == null || !key.consumeClick()) return;
 

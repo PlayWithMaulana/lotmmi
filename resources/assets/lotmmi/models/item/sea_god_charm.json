@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "lotmmi:item/sea_god_charm"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "custom_model_data": 1
+      },
+      "model": "lotmmi:item/charm_sea_affinity"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 2
+      },
+      "model": "lotmmi:item/charm_electric_shock"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 3
+      },
+      "model": "lotmmi:item/charm_gale"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 4
+      },
+      "model": "lotmmi:item/charm_sea_whisper"
+    }
+  ]
+}

@@ -45,6 +45,18 @@ public class ModDataComponents {
                     .networkSynchronized(ByteBufCodecs.VAR_LONG)
                     .build());
 
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<String>> CHARM_ABILITY_ID =
+            DATA_COMPONENT_TYPES.register("charm_ability_id", () -> DataComponentType.<String>builder()
+                    .persistent(Codec.STRING)
+                    .networkSynchronized(ByteBufCodecs.STRING_UTF8)
+                    .build());
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Long>> CHARM_CREATED_TICK =
+            DATA_COMPONENT_TYPES.register("charm_created_tick", () -> DataComponentType.<Long>builder()
+                    .persistent(Codec.LONG)
+                    .networkSynchronized(ByteBufCodecs.VAR_LONG)
+                    .build());
+
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<String>> ABILITY_ORDER =
             DATA_COMPONENT_TYPES.register("ability_order", () -> DataComponentType.<String>builder()
                     .persistent(Codec.STRING)

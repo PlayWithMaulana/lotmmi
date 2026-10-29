@@ -4,6 +4,7 @@ import com.Maul.lotmmi.LotmMysticalItems;
 import com.Maul.lotmmi.entity.ModEntities;
 import com.Maul.lotmmi.item.custom.AwakenedCreepingHungerItem;
 import com.Maul.lotmmi.item.custom.CreepingHungerItem;
+import com.Maul.lotmmi.item.custom.SeaGodCharmItem;
 import com.Maul.lotmmi.item.custom.StaffOfStarsItem;
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
@@ -23,6 +24,9 @@ public class ModItems {
 
     public static final DeferredItem<StaffOfStarsItem> STAFF_OF_THE_STARS =
             ITEMS.register("staff_of_the_stars", () -> new StaffOfStarsItem(new Item.Properties().stacksTo(1).fireResistant()));
+
+    public static final DeferredItem<SeaGodCharmItem> SEA_GOD_CHARM =
+            ITEMS.register("sea_god_charm", () -> new SeaGodCharmItem(new Item.Properties().stacksTo(16)));
 
     public static final DeferredItem<DeferredSpawnEggItem> QILANGOS_SPAWN_EGG =
             ITEMS.register("qilangos_spawn_egg",

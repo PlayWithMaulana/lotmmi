@@ -18,6 +18,10 @@ public final class LotmmiConfig {
             .comment("How many demigod-tier souls (Sequence 4 down to awakenedMinGraziableSequence) the Awakened Creeping Hunger can hold at once. Only used when restrictDemigodGrazing is enabled.")
             .defineInRange("awakenedDemigodSouls", 1, 0, 7);
 
+    public static final ModConfigSpec.IntValue CHARM_LIFETIME_DAYS = BUILDER
+            .comment("Days until a Sea God Charm loses all its spirituality (1 day = 24000 ticks). 90 = three months of 30 days.")
+            .defineInRange("charmLifetimeDays", 90, 1, 3650);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     private LotmmiConfig() {

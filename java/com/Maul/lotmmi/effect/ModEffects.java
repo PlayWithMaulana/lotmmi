@@ -15,6 +15,9 @@ public class ModEffects {
     public static final Holder<net.minecraft.world.effect.MobEffect> PANIC = MOB_EFFECTS.register("panic",
             () -> new PanicEffect(MobEffectCategory.HARMFUL, 0xB03030));
 
+    public static final Holder<net.minecraft.world.effect.MobEffect> SEA_BLOOD_DRAIN = MOB_EFFECTS.register("sea_blood_drain",
+            () -> new SeaBloodDrainEffect(MobEffectCategory.HARMFUL, 0x2A5C8A));
+
     public static void register(IEventBus eventBus) {
         MOB_EFFECTS.register(eventBus);
     }

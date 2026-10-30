@@ -24,7 +24,7 @@ public class ModItems {
             ITEMS.register("awakened_creeping_hunger", () -> new AwakenedCreepingHungerItem(new Item.Properties().stacksTo(1)));
 
     public static final DeferredItem<StaffOfStarsItem> STAFF_OF_THE_STARS =
-            ITEMS.register("staff_of_the_stars", () -> new StaffOfStarsItem(new Item.Properties().stacksTo(1).fireResistant()));
+            ITEMS.register("staff_of_the_stars", () -> new StaffOfStarsItem(new Item.Properties().stacksTo(1).fireResistant().rarity(net.minecraft.world.item.Rarity.EPIC)));
 
     public static final DeferredItem<SeaGodScepterItem> SEA_GOD_SCEPTER =
             ITEMS.register("sea_god_scepter", () -> new SeaGodScepterItem(new Item.Properties().stacksTo(1).fireResistant().rarity(net.minecraft.world.item.Rarity.EPIC)));

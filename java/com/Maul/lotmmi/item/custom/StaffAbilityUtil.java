@@ -16,11 +16,38 @@ import java.util.Map;
 import java.util.Random;
 
 public class StaffAbilityUtil {
-
     private static final Random RANDOM = new Random();
-    private static final float BACKFIRE_DAMAGE = 4.0F;
-    private static final double BACKFIRE_CHANCE_ON_FAIL = 0.2D;
     private static final int POTENCY_SEQUENCE_PENALTY = 1;
+
+    public record IntrospectState(List<String> libraryIds, List<String> libraryLabels,
+                                  List<String> wheelIds, List<String> wheelLabels) {}
+
+    public static IntrospectState buildIntrospectState(ItemStack stack) {
+        List<String> libraryIds = new ArrayList<>();
+        List<String> libraryLabels = new ArrayList<>();
+        for (String id : StaffMemoryUtil.getWitnessedAbilityIds(stack)) {
+            Ability ability = LOTMCraft.abilityHandler.getById(id);
+            if (ability == null) continue;
+
+            Map<String, Integer> requirements = ability.getRequirements();
+            int sequence = requirements.isEmpty() ? 9 : requirements.values().iterator().next();
+            double accuracy = StaffMemoryUtil.getAccuracy(stack, id, sequence);
+            libraryIds.add(id);
+            libraryLabels.add(ability.getName().getString() + " - " + Math.round(accuracy * 100) + "% (Seq " + sequence + ")");
+        }
+
+        List<String> wheelIds = new ArrayList<>();
+        List<String> wheelLabels = new ArrayList<>();
+        SealedArtifactData data = stack.get(ModDataComponents.SEALED_ARTIFACT_DATA.get());
+        if (data != null) {
+            for (Ability ability : data.abilities()) {
+                wheelIds.add(ability.getId());
+                wheelLabels.add(ability.getName().getString());
+            }
+        }
+
+        return new IntrospectState(libraryIds, libraryLabels, wheelIds, wheelLabels);
+    }
 
     public static void rebuildSealedArtifactData(ItemStack stack) {
         List<String> wheel = StaffMemoryUtil.getWheel(stack);
@@ -61,7 +88,7 @@ public class StaffAbilityUtil {
         SealedArtifactData data = stack.get(ModDataComponents.SEALED_ARTIFACT_DATA.get());
         if (data == null || data.abilities().isEmpty()) {
             player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
-                    "The staff has no reenactable abilities placed in its rotation yet."));
+                    "The staff has no abilities on its wheel yet."));
             return false;
         }
 
@@ -82,11 +109,28 @@ public class StaffAbilityUtil {
 
         if (RANDOM.nextDouble() >= failChance) {
             ability.useAbility(level, player, true, false, true, false);
+            ArtifactEffects.staffCast(level, player);
         } else {
             PanicUtil.escalate(player);
-            if (RANDOM.nextDouble() < BACKFIRE_CHANCE_ON_FAIL) {
-                player.hurt(player.damageSources().magic(), BACKFIRE_DAMAGE);
-            }
+            StaffAnomalyUtil.rollMisfire(level, player, stack);
+        }
+        return true;
+    }
+
+    public static boolean castRandomWheelAbility(ServerLevel level, ServerPlayer player, ItemStack stack, String intro) {
+        List<String> wheel = StaffMemoryUtil.getWheel(stack);
+        if (wheel.isEmpty()) return false;
+
+        Ability ability = LOTMCraft.abilityHandler.getById(wheel.get(RANDOM.nextInt(wheel.size())));
+        if (ability == null) return false;
+
+        player.sendSystemMessage(net.minecraft.network.chat.Component.literal(intro + ability.getName().getString() + " is released.")
+                .withStyle(net.minecraft.ChatFormatting.LIGHT_PURPLE));
+        applyStaffScaling(player, ability);
+        try {
+            ability.useAbility(level, player, false, false, true, false);
+        } finally {
+            AbilityUtil.removeArtifactScaling(player);
         }
         return true;
     }

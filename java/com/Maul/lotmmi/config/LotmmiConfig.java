@@ -38,6 +38,33 @@ public final class LotmmiConfig {
             .comment("If true, Gaze only works inside your own Sefirah Castle. If false (default), it works anywhere.")
             .define("gazeRequiresSefirahCastle", false);
 
+    public static final ModConfigSpec.BooleanValue STAFF_ANOMALY_POWER = BUILDER
+            .comment("Staff of the Stars anomalies: power (wrong power, backlash, shuffled ability wheel).")
+            .define("staffAnomalyPower", true);
+    public static final ModConfigSpec.BooleanValue STAFF_ANOMALY_MIND = BUILDER
+            .comment("Staff of the Stars anomalies: mind (blanking out, Mental Plague).")
+            .define("staffAnomalyMind", true);
+    public static final ModConfigSpec.BooleanValue STAFF_ANOMALY_BODY = BUILDER
+            .comment("Staff of the Stars anomalies: body (Cursed animal form, shrinking, growing, Mutated).")
+            .define("staffAnomalyBody", true);
+    public static final ModConfigSpec.BooleanValue STAFF_ANOMALY_SPACE = BUILDER
+            .comment("Staff of the Stars anomalies: space (displacement, swapping places).")
+            .define("staffAnomalySpace", true);
+    public static final ModConfigSpec.BooleanValue STAFF_ANOMALY_FORTUNE = BUILDER
+            .comment("Staff of the Stars anomalies: fortune (bad luck, stray lightning, a sudden storm).")
+            .define("staffAnomalyFortune", true);
+    public static final ModConfigSpec.BooleanValue STAFF_ANOMALY_ECHO = BUILDER
+            .comment("Staff of the Stars anomalies: hostile echoes of figures the staff has stared at (high Panic only).")
+            .define("staffAnomalyEchoFigures", true);
+    public static final ModConfigSpec.BooleanValue STAFF_AMBIENT_ANOMALIES = BUILDER
+            .comment("Strange things happen around an unsealed Staff of the Stars that nobody is holding. Inside a Sefirah Castle it is sealed and calm.")
+            .define("staffAmbientAnomalies", true);
+    public static final ModConfigSpec.DoubleValue STAFF_SLIP_CHANCE_DROPPED = BUILDER
+            .comment("Chance per minute that a dropped, unsealed Staff of the Stars teleports far away. Very small by default. 0 turns it off.")
+            .defineInRange("staffSlipChanceDropped", 0.005D, 0.0D, 1.0D);
+    public static final ModConfigSpec.DoubleValue STAFF_SLIP_CHANCE_STOWED = BUILDER
+            .comment("Chance per minute that an unsealed Staff of the Stars carried in a pack (not in hand) slips away. Very small by default. 0 turns it off.")
+            .defineInRange("staffSlipChanceStowed", 0.0005D, 0.0D, 1.0D);
     public static final ModConfigSpec.IntValue BLOOD_DRAIN_INTERVAL_MINUTES = BUILDER
             .comment("Minutes between the Sea God Scepter's Blood Drain pulses while it is carried (20 ticks per second).")
             .defineInRange("bloodDrainIntervalMinutes", 35, 1, 100000);

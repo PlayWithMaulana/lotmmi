@@ -29,9 +29,6 @@ public class ModMenuTypes {
             MENU_TYPES.register("staff_teleport_menu", () ->
                     IMenuTypeExtension.create((windowId, inv, data) -> new StaffTeleportMenu(windowId, inv, data)));
 
-    public static final DeferredHolder<MenuType<?>, MenuType<StaffItemCaptureMenu>> STAFF_ITEM_CAPTURE_MENU =
-            MENU_TYPES.register("staff_item_capture_menu", () ->
-                    IMenuTypeExtension.create((windowId, inv, data) -> new StaffItemCaptureMenu(windowId, inv, data)));
     public static final DeferredHolder<MenuType<?>, MenuType<ScepterIntrospectMenu>> SCEPTER_INTROSPECT_MENU =
             MENU_TYPES.register("scepter_introspect_menu", () ->
                     IMenuTypeExtension.create((windowId, inv, data) -> new ScepterIntrospectMenu(windowId, inv, data)));

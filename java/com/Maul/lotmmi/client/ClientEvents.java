@@ -5,7 +5,6 @@ import com.Maul.lotmmi.gui.GrazeChoiceScreen;
 import com.Maul.lotmmi.gui.ItemIntrospectScreen;
 import com.Maul.lotmmi.gui.ModMenuTypes;
 import com.Maul.lotmmi.gui.StaffIntrospectScreen;
-import com.Maul.lotmmi.gui.StaffItemCaptureScreen;
 import com.Maul.lotmmi.gui.ScepterIntrospectScreen;
 import com.Maul.lotmmi.gui.StaffTeleportScreen;
 import com.Maul.lotmmi.item.custom.AwakenedCreepingHungerItem;
@@ -57,7 +56,6 @@ public class ClientEvents {
         event.register(ModMenuTypes.GRAZE_CHOICE_MENU.get(), GrazeChoiceScreen::new);
         event.register(ModMenuTypes.STAFF_INTROSPECT_MENU.get(), StaffIntrospectScreen::new);
         event.register(ModMenuTypes.STAFF_TELEPORT_MENU.get(), StaffTeleportScreen::new);
-        event.register(ModMenuTypes.STAFF_ITEM_CAPTURE_MENU.get(), StaffItemCaptureScreen::new);
         event.register(ModMenuTypes.SCEPTER_INTROSPECT_MENU.get(), ScepterIntrospectScreen::new);
     }
 

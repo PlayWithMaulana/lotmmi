@@ -13,8 +13,6 @@ import com.Maul.lotmmi.network.packets.toServer.OpenScepterIntrospectPacket;
 import com.Maul.lotmmi.network.packets.toServer.OpenStaffIntrospectPacket;
 import com.Maul.lotmmi.network.packets.toServer.PrayerActionPacket;
 import com.Maul.lotmmi.network.packets.toServer.StaffAbilityActionPacket;
-import com.Maul.lotmmi.network.packets.toServer.StaffEntityActionPacket;
-import com.Maul.lotmmi.network.packets.toServer.StaffItemActionPacket;
 import com.Maul.lotmmi.network.packets.toServer.StaffRenameSlotPacket;
 import com.Maul.lotmmi.network.packets.toServer.StaffSlotActionPacket;
 import com.Maul.lotmmi.network.packets.toServer.StaffTypedTeleportPacket;
@@ -29,7 +27,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public class ModPacketHandler {
 
-    private static final String PROTOCOL_VERSION = "5";
+    private static final String PROTOCOL_VERSION = "6";
 
     public static void register(RegisterPayloadHandlersEvent event) {
         final PayloadRegistrar registrar = event.registrar(LotmMysticalItems.MOD_ID)
@@ -148,17 +146,6 @@ public class ModPacketHandler {
                 StaffTypedTeleportPacket::handle
         );
 
-        registrar.playToServer(
-                StaffEntityActionPacket.TYPE,
-                StaffEntityActionPacket.STREAM_CODEC,
-                StaffEntityActionPacket::handle
-        );
-
-        registrar.playToServer(
-                StaffItemActionPacket.TYPE,
-                StaffItemActionPacket.STREAM_CODEC,
-                StaffItemActionPacket::handle
-        );
     }
 
     public static void sendToServer(CustomPacketPayload packet) {

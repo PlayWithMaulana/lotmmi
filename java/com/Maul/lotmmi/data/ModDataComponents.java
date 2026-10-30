@@ -45,6 +45,18 @@ public class ModDataComponents {
                     .networkSynchronized(ByteBufCodecs.VAR_LONG)
                     .build());
 
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<CompoundTag>> SCEPTER_FOLLOWERS =
+            DATA_COMPONENT_TYPES.register("scepter_followers", () -> DataComponentType.<CompoundTag>builder()
+                    .persistent(CompoundTag.CODEC)
+                    .networkSynchronized(ByteBufCodecs.COMPOUND_TAG)
+                    .build());
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<CompoundTag>> SCEPTER_PRAYERS =
+            DATA_COMPONENT_TYPES.register("scepter_prayers", () -> DataComponentType.<CompoundTag>builder()
+                    .persistent(CompoundTag.CODEC)
+                    .networkSynchronized(ByteBufCodecs.COMPOUND_TAG)
+                    .build());
+
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<String>> CHARM_ABILITY_ID =
             DATA_COMPONENT_TYPES.register("charm_ability_id", () -> DataComponentType.<String>builder()
                     .persistent(Codec.STRING)

@@ -3,10 +3,13 @@ package com.Maul.lotmmi.network;
 import com.Maul.lotmmi.LotmMysticalItems;
 import com.Maul.lotmmi.network.packets.toClient.SyncItemIntrospectPacket;
 import com.Maul.lotmmi.network.packets.toServer.ChooseGrazeAbilityPacket;
+import com.Maul.lotmmi.network.packets.toServer.CreateCharmPacket;
 import com.Maul.lotmmi.network.packets.toServer.CycleSoulPacket;
+import com.Maul.lotmmi.network.packets.toServer.FollowerActionPacket;
 import com.Maul.lotmmi.network.packets.toServer.FeedReserveSoulPacket;
 import com.Maul.lotmmi.network.packets.toServer.OpenItemIntrospectPacket;
 import com.Maul.lotmmi.network.packets.toServer.OpenStaffIntrospectPacket;
+import com.Maul.lotmmi.network.packets.toServer.PrayerActionPacket;
 import com.Maul.lotmmi.network.packets.toServer.StaffAbilityActionPacket;
 import com.Maul.lotmmi.network.packets.toServer.StaffEntityActionPacket;
 import com.Maul.lotmmi.network.packets.toServer.StaffItemActionPacket;
@@ -24,7 +27,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public class ModPacketHandler {
 
-    private static final String PROTOCOL_VERSION = "3";
+    private static final String PROTOCOL_VERSION = "4";
 
     public static void register(RegisterPayloadHandlersEvent event) {
         final PayloadRegistrar registrar = event.registrar(LotmMysticalItems.MOD_ID)
@@ -58,6 +61,24 @@ public class ModPacketHandler {
                 ToggleAbilityPacket.TYPE,
                 ToggleAbilityPacket.STREAM_CODEC,
                 ToggleAbilityPacket::handle
+        );
+
+        registrar.playToServer(
+                CreateCharmPacket.TYPE,
+                CreateCharmPacket.STREAM_CODEC,
+                CreateCharmPacket::handle
+        );
+
+        registrar.playToServer(
+                FollowerActionPacket.TYPE,
+                FollowerActionPacket.STREAM_CODEC,
+                FollowerActionPacket::handle
+        );
+
+        registrar.playToServer(
+                PrayerActionPacket.TYPE,
+                PrayerActionPacket.STREAM_CODEC,
+                PrayerActionPacket::handle
         );
 
         registrar.playToServer(

@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "PPP",
+    "PCP",
+    "PPP"
+  ],
+  "key": {
+    "C": {
+      "item": "lotmcraft:sea_king_characteristic"
+    },
+    "P": {
+      "item": "lotmcraft:one_pound"
+    }
+  },
+  "result": {
+    "id": "lotmmi:sea_god_scepter",
+    "count": 1
+  }
+}

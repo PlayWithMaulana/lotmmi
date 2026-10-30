@@ -45,6 +45,12 @@ public class ModDataComponents {
                     .networkSynchronized(ByteBufCodecs.VAR_LONG)
                     .build());
 
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Long>> SCEPTER_LAST_DRAIN_TICK =
+            DATA_COMPONENT_TYPES.register("scepter_last_drain_tick", () -> DataComponentType.<Long>builder()
+                    .persistent(Codec.LONG)
+                    .networkSynchronized(ByteBufCodecs.VAR_LONG)
+                    .build());
+
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<CompoundTag>> SCEPTER_FOLLOWERS =
             DATA_COMPONENT_TYPES.register("scepter_followers", () -> DataComponentType.<CompoundTag>builder()
                     .persistent(CompoundTag.CODEC)

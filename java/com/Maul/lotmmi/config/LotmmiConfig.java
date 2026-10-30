@@ -26,6 +26,22 @@ public final class LotmmiConfig {
             .comment("Days until a Sea God Charm loses all its spirituality (1 day = 24000 ticks). 90 = three months of 30 days.")
             .defineInRange("charmLifetimeDays", 90, 1, 3650);
 
+    public static final ModConfigSpec.IntValue GAZE_DURATION_SECONDS = BUILDER
+            .comment("How many seconds the Sea God Scepter's Gaze lasts before you are pulled back to where you started.")
+            .defineInRange("gazeDurationSeconds", 60, 5, 600);
+
+    public static final ModConfigSpec.DoubleValue GAZE_SPIRITUALITY_PER_SECOND = BUILDER
+            .comment("Spirituality drained per second while gazing. The default is about one median Sequence 5 ability (150) per second.")
+            .defineInRange("gazeSpiritualityPerSecond", 150.0D, 0.0D, 1000000.0D);
+
+    public static final ModConfigSpec.BooleanValue GAZE_REQUIRES_CASTLE = BUILDER
+            .comment("If true, Gaze only works inside your own Sefirah Castle. If false (default), it works anywhere.")
+            .define("gazeRequiresSefirahCastle", false);
+
+    public static final ModConfigSpec.IntValue BLOOD_DRAIN_INTERVAL_MINUTES = BUILDER
+            .comment("Minutes between the Sea God Scepter's Blood Drain pulses while it is carried (20 ticks per second).")
+            .defineInRange("bloodDrainIntervalMinutes", 35, 1, 100000);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     private LotmmiConfig() {

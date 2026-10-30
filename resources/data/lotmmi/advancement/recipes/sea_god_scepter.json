@@ -1,0 +1,27 @@
+{
+  "parent": "minecraft:recipes/root",
+  "rewards": {
+    "recipes": [
+      "lotmmi:sea_god_scepter"
+    ]
+  },
+  "criteria": {
+    "has_sea_king_characteristic": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "lotmcraft:sea_king_characteristic"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_sea_king_characteristic"
+    ]
+  ]
+}

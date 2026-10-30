@@ -22,6 +22,7 @@ public class ModCreativeTabs {
                         output.accept(ModItems.CREEPING_HUNGER.get());
                         output.accept(ModItems.AWAKENED_CREEPING_HUNGER.get());
                         output.accept(ModItems.STAFF_OF_THE_STARS.get());
+                        output.accept(ModItems.SEA_GOD_SCEPTER.get());
                         output.accept(ModItems.QILANGOS_SPAWN_EGG.get());
                     })
                     .build());

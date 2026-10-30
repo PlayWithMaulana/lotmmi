@@ -2,12 +2,14 @@ package com.Maul.lotmmi.network;
 
 import com.Maul.lotmmi.LotmMysticalItems;
 import com.Maul.lotmmi.network.packets.toClient.SyncItemIntrospectPacket;
+import com.Maul.lotmmi.network.packets.toClient.SyncScepterIntrospectPacket;
 import com.Maul.lotmmi.network.packets.toServer.ChooseGrazeAbilityPacket;
 import com.Maul.lotmmi.network.packets.toServer.CreateCharmPacket;
 import com.Maul.lotmmi.network.packets.toServer.CycleSoulPacket;
 import com.Maul.lotmmi.network.packets.toServer.FollowerActionPacket;
 import com.Maul.lotmmi.network.packets.toServer.FeedReserveSoulPacket;
 import com.Maul.lotmmi.network.packets.toServer.OpenItemIntrospectPacket;
+import com.Maul.lotmmi.network.packets.toServer.OpenScepterIntrospectPacket;
 import com.Maul.lotmmi.network.packets.toServer.OpenStaffIntrospectPacket;
 import com.Maul.lotmmi.network.packets.toServer.PrayerActionPacket;
 import com.Maul.lotmmi.network.packets.toServer.StaffAbilityActionPacket;
@@ -27,7 +29,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public class ModPacketHandler {
 
-    private static final String PROTOCOL_VERSION = "4";
+    private static final String PROTOCOL_VERSION = "5";
 
     public static void register(RegisterPayloadHandlersEvent event) {
         final PayloadRegistrar registrar = event.registrar(LotmMysticalItems.MOD_ID)
@@ -61,6 +63,12 @@ public class ModPacketHandler {
                 ToggleAbilityPacket.TYPE,
                 ToggleAbilityPacket.STREAM_CODEC,
                 ToggleAbilityPacket::handle
+        );
+
+        registrar.playToClient(
+                SyncScepterIntrospectPacket.TYPE,
+                SyncScepterIntrospectPacket.STREAM_CODEC,
+                SyncScepterIntrospectPacket::handle
         );
 
         registrar.playToServer(
@@ -99,6 +107,12 @@ public class ModPacketHandler {
                 OpenItemIntrospectPacket::handle
         );
 
+        registrar.playToServer(
+                OpenScepterIntrospectPacket.TYPE,
+                OpenScepterIntrospectPacket.STREAM_CODEC,
+                OpenScepterIntrospectPacket::handle
+        );
+
         registrar.playToClient(
                 SyncItemIntrospectPacket.TYPE,
                 SyncItemIntrospectPacket.STREAM_CODEC,
@@ -122,7 +136,6 @@ public class ModPacketHandler {
                 StaffSlotActionPacket.STREAM_CODEC,
                 StaffSlotActionPacket::handle
         );
-
         registrar.playToServer(
                 StaffRenameSlotPacket.TYPE,
                 StaffRenameSlotPacket.STREAM_CODEC,

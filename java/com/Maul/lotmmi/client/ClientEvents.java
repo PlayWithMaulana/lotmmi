@@ -6,13 +6,16 @@ import com.Maul.lotmmi.gui.ItemIntrospectScreen;
 import com.Maul.lotmmi.gui.ModMenuTypes;
 import com.Maul.lotmmi.gui.StaffIntrospectScreen;
 import com.Maul.lotmmi.gui.StaffItemCaptureScreen;
+import com.Maul.lotmmi.gui.ScepterIntrospectScreen;
 import com.Maul.lotmmi.gui.StaffTeleportScreen;
 import com.Maul.lotmmi.item.custom.AwakenedCreepingHungerItem;
 import com.Maul.lotmmi.item.custom.CreepingHungerItem;
 import com.Maul.lotmmi.item.custom.StaffOfStarsItem;
 import com.Maul.lotmmi.network.ModPacketHandler;
 import com.Maul.lotmmi.network.packets.toServer.CycleSoulPacket;
+import com.Maul.lotmmi.item.custom.SeaGodScepterItem;
 import com.Maul.lotmmi.network.packets.toServer.OpenItemIntrospectPacket;
+import com.Maul.lotmmi.network.packets.toServer.OpenScepterIntrospectPacket;
 import com.Maul.lotmmi.network.packets.toServer.OpenStaffIntrospectPacket;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.KeyMapping;
@@ -55,6 +58,7 @@ public class ClientEvents {
         event.register(ModMenuTypes.STAFF_INTROSPECT_MENU.get(), StaffIntrospectScreen::new);
         event.register(ModMenuTypes.STAFF_TELEPORT_MENU.get(), StaffTeleportScreen::new);
         event.register(ModMenuTypes.STAFF_ITEM_CAPTURE_MENU.get(), StaffItemCaptureScreen::new);
+        event.register(ModMenuTypes.SCEPTER_INTROSPECT_MENU.get(), ScepterIntrospectScreen::new);
     }
 
     @SubscribeEvent
@@ -93,8 +97,14 @@ public class ClientEvents {
             return;
         }
 
+        InteractionHand scepterHand = findHeldItem(player, SeaGodScepterItem.class);
+        if (scepterHand != null) {
+            ModPacketHandler.sendToServer(new OpenScepterIntrospectPacket(scepterHand == InteractionHand.MAIN_HAND));
+            return;
+        }
+
         player.displayClientMessage(
-                Component.literal("Hold Creeping Hunger or the Staff of the Stars to Introspect it.")
+                Component.literal("Hold Creeping Hunger, the Staff of the Stars, or the Sea God Scepter to Introspect it.")
                         .withStyle(ChatFormatting.DARK_GRAY),
                 true);
     }

@@ -12,13 +12,11 @@ import java.util.List;
 public class StaffTeleportMenuProvider implements MenuProvider {
 
     private final boolean mainHand;
-    private final List<String> slotLabels;
-    private final List<String> slotNames;
+    private final List<String> slotDetails;
 
-    public StaffTeleportMenuProvider(boolean mainHand, List<String> slotLabels, List<String> slotNames) {
+    public StaffTeleportMenuProvider(boolean mainHand, List<String> slotDetails) {
         this.mainHand = mainHand;
-        this.slotLabels = slotLabels;
-        this.slotNames = slotNames;
+        this.slotDetails = slotDetails;
     }
 
     @Override
@@ -28,6 +26,6 @@ public class StaffTeleportMenuProvider implements MenuProvider {
 
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
-        return new StaffTeleportMenu(containerId, mainHand, slotLabels, slotNames);
+        return new StaffTeleportMenu(containerId, mainHand, slotDetails);
     }
 }

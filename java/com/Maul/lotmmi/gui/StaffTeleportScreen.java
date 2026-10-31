@@ -1,53 +1,35 @@
 package com.Maul.lotmmi.gui;
 
+import com.Maul.lotmmi.item.custom.StaffTeleportUtil;
 import com.Maul.lotmmi.network.ModPacketHandler;
-import com.Maul.lotmmi.network.packets.toServer.StaffRenameSlotPacket;
 import com.Maul.lotmmi.network.packets.toServer.StaffSlotActionPacket;
-import com.Maul.lotmmi.network.packets.toServer.StaffTypedTeleportPacket;
-import net.minecraft.ChatFormatting;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class StaffTeleportScreen extends AbstractContainerScreen<StaffTeleportMenu> {
 
-    private static final int ROW_HEIGHT = 20;
-    private static final int RENAME_BUTTON_WIDTH = 46;
+    private static final int ROW_HEIGHT = 26;
+    private static final int TEXT_BOX_WIDTH = 138;
 
-    private final List<String> slotLabels;
-    private final List<String> slotNames;
-
-    private EditBox xBox;
-    private EditBox yBox;
-    private EditBox zBox;
-    private String errorMessage = null;
-
-    private final List<ResourceKey<Level>> availableDimensions = new ArrayList<>();
-    private int selectedDimensionIndex = 0;
-    private Button dimensionButton;
-
-    private final List<Button> renameButtons = new ArrayList<>();
-
-    private int renamingIndex = -1;
-    private EditBox renameBox;
-    private Button renameSaveButton;
+    private List<String> slotDetails;
+    private int lastSeenSyncVersion;
+    private int lastChancePercent = -1;
+    private final List<Button> rowButtons = new ArrayList<>();
 
     public StaffTeleportScreen(StaffTeleportMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
-        this.slotLabels = menu.getSlotLabels();
-        this.slotNames = menu.getSlotNames();
+        this.slotDetails = menu.getSlotDetails();
+        this.lastSeenSyncVersion = menu.getSyncVersion();
 
-        this.imageWidth = 220;
-        this.imageHeight = 30 + slotLabels.size() * ROW_HEIGHT + 92;
+        this.imageWidth = 250;
+        this.imageHeight = 34 + slotDetails.size() * ROW_HEIGHT + 26;
     }
 
     @Override
@@ -55,174 +37,70 @@ public class StaffTeleportScreen extends AbstractContainerScreen<StaffTeleportMe
         super.init();
         this.leftPos = (this.width - this.imageWidth) / 2;
         this.topPos = (this.height - this.imageHeight) / 2;
+        refreshButtons();
+    }
 
-        if (this.minecraft != null && this.minecraft.getConnection() != null) {
-            availableDimensions.clear();
-            availableDimensions.addAll(this.minecraft.getConnection().levels());
-            availableDimensions.sort((a, b) -> a.location().toString().compareTo(b.location().toString()));
-            if (this.minecraft.player != null) {
-                int currentIndex = availableDimensions.indexOf(this.minecraft.player.level().dimension());
-                if (currentIndex >= 0) selectedDimensionIndex = currentIndex;
-            }
-        }
+    private boolean isOccupied(int index) {
+        return index < slotDetails.size() && !slotDetails.get(index).isEmpty();
+    }
 
-        int dimensionY = topPos + 34 + slotLabels.size() * ROW_HEIGHT + 6;
-        int typedY = dimensionY + 22;
+    private int misrecallPercent() {
+        if (this.minecraft == null || this.minecraft.player == null) return 1;
+        return (int) Math.round(StaffTeleportUtil.misrecallChance(this.minecraft.player) * 100.0D);
+    }
 
-        dimensionButton = Button.builder(Component.literal(currentDimensionLabel()), b -> cycleDimension())
-                .bounds(leftPos + 10, dimensionY, imageWidth - 20, 18)
-                .build();
-        dimensionButton.active = !availableDimensions.isEmpty();
-        this.addRenderableWidget(dimensionButton);
+    private void refreshButtons() {
+        for (Button button : rowButtons) this.removeWidget(button);
+        rowButtons.clear();
+        lastChancePercent = misrecallPercent();
 
-        xBox = new EditBox(this.font, leftPos + 10, typedY, 60, 16, Component.literal("X"));
-        yBox = new EditBox(this.font, leftPos + 78, typedY, 60, 16, Component.literal("Y"));
-        zBox = new EditBox(this.font, leftPos + 146, typedY, 60, 16, Component.literal("Z"));
-        xBox.setHint(Component.literal("X").withStyle(ChatFormatting.DARK_GRAY));
-        yBox.setHint(Component.literal("Y").withStyle(ChatFormatting.DARK_GRAY));
-        zBox.setHint(Component.literal("Z").withStyle(ChatFormatting.DARK_GRAY));
-
-        this.addRenderableWidget(xBox);
-        this.addRenderableWidget(yBox);
-        this.addRenderableWidget(zBox);
-
-        this.addRenderableWidget(Button.builder(Component.literal("Attempt Teleport"), b -> attemptTypedTeleport())
-                .bounds(leftPos + 10, typedY + 22, imageWidth - 20, 20)
-                .build());
-
-        renameButtons.clear();
-        for (int i = 0; i < slotLabels.size(); i++) {
-            boolean occupied = slotNames != null && i < slotNames.size() && !slotLabels.get(i).startsWith("Empty");
-            if (!occupied) {
-                renameButtons.add(null);
-                continue;
-            }
-
-            int rowIndex = i;
+        for (int i = 0; i < slotDetails.size(); i++) {
+            int index = i;
             int y = topPos + 34 + i * ROW_HEIGHT;
-            Button renameButton = Button.builder(Component.literal("Rename"), b -> toggleRename(rowIndex))
-                    .bounds(leftPos + imageWidth - 10 - RENAME_BUTTON_WIDTH, y + 1, RENAME_BUTTON_WIDTH, ROW_HEIGHT - 4)
-                    .build();
-            renameButtons.add(renameButton);
-            this.addRenderableWidget(renameButton);
+            int x = leftPos + 8 + TEXT_BOX_WIDTH + 4;
+            boolean occupied = isOccupied(i);
+
+            Button go = Button.builder(Component.literal("Go"), b -> {
+                        ModPacketHandler.sendToServer(new StaffSlotActionPacket(menu.isMainHand(), index, StaffSlotActionPacket.ACTION_TELEPORT));
+                        this.onClose();
+                    })
+                    .bounds(x, y, 28, ROW_HEIGHT - 4).build();
+            go.active = occupied;
+            go.setTooltip(Tooltip.create(Component.literal("Teleport to this location.\nChance to misremember: " + lastChancePercent + "%")));
+            addButton(go);
+
+            Button save = Button.builder(Component.literal("Save"),
+                            b -> ModPacketHandler.sendToServer(new StaffSlotActionPacket(menu.isMainHand(), index, StaffSlotActionPacket.ACTION_SAVE)))
+                    .bounds(x + 30, y, 34, ROW_HEIGHT - 4).build();
+            save.setTooltip(Tooltip.create(Component.literal(occupied
+                    ? "Replace this location with your current position."
+                    : "Save your current position and dimension.")));
+            addButton(save);
+
+            Button clear = Button.builder(Component.literal("Del"),
+                            b -> ModPacketHandler.sendToServer(new StaffSlotActionPacket(menu.isMainHand(), index, StaffSlotActionPacket.ACTION_CLEAR)))
+                    .bounds(x + 66, y, 26, ROW_HEIGHT - 4).build();
+            clear.active = occupied;
+            addButton(clear);
         }
     }
 
-    private String currentDimensionLabel() {
-        if (availableDimensions.isEmpty()) return "Dimension: (unknown)";
-        return "Dimension: " + availableDimensions.get(selectedDimensionIndex).location();
-    }
-
-    private void cycleDimension() {
-        if (availableDimensions.isEmpty()) return;
-        selectedDimensionIndex = (selectedDimensionIndex + 1) % availableDimensions.size();
-        dimensionButton.setMessage(Component.literal(currentDimensionLabel()));
-    }
-
-    private void toggleRename(int index) {
-        if (renamingIndex == index) {
-            cancelRename();
-            return;
-        }
-        cancelRename();
-
-        renamingIndex = index;
-        int y = topPos + 34 + index * ROW_HEIGHT;
-
-        if (renameButtons.get(index) != null) {
-            this.removeWidget(renameButtons.get(index));
-        }
-
-        int boxWidth = imageWidth - 20 - 44;
-        renameBox = new EditBox(this.font, leftPos + 10, y + 1, boxWidth, ROW_HEIGHT - 4, Component.literal("Name"));
-        renameBox.setMaxLength(StaffRenameSlotPacket.MAX_NAME_LENGTH);
-        renameBox.setValue(index < slotNames.size() ? slotNames.get(index) : "");
-        renameBox.setHint(Component.literal("Name this location").withStyle(ChatFormatting.DARK_GRAY));
-        renameBox.setFocused(true);
-        this.addRenderableWidget(renameBox);
-
-        renameSaveButton = Button.builder(Component.literal("Save"), b -> confirmRename())
-                .bounds(leftPos + 10 + boxWidth + 4, y + 1, 40, ROW_HEIGHT - 4)
-                .build();
-        this.addRenderableWidget(renameSaveButton);
-    }
-
-    private void confirmRename() {
-        if (renamingIndex < 0 || renameBox == null) return;
-        ModPacketHandler.sendToServer(new StaffRenameSlotPacket(menu.isMainHand(), renamingIndex, renameBox.getValue().trim()));
-        cancelRename();
-
-        this.onClose();
-    }
-
-    private void cancelRename() {
-        if (renameBox != null) {
-            this.removeWidget(renameBox);
-            renameBox = null;
-        }
-        if (renameSaveButton != null) {
-            this.removeWidget(renameSaveButton);
-            renameSaveButton = null;
-        }
-        if (renamingIndex >= 0 && renamingIndex < renameButtons.size() && renameButtons.get(renamingIndex) != null) {
-            this.addRenderableWidget(renameButtons.get(renamingIndex));
-        }
-        renamingIndex = -1;
-    }
-
-    private void attemptTypedTeleport() {
-        Double x = parseCoordinate(xBox.getValue());
-        Double y = parseCoordinate(yBox.getValue());
-        Double z = parseCoordinate(zBox.getValue());
-        if (x == null || y == null || z == null) {
-            errorMessage = "Enter valid numbers for X, Y, and Z.";
-            return;
-        }
-        if (availableDimensions.isEmpty()) {
-            errorMessage = "No dimension available to teleport to.";
-            return;
-        }
-        errorMessage = null;
-        String dimension = availableDimensions.get(selectedDimensionIndex).location().toString();
-        ModPacketHandler.sendToServer(new StaffTypedTeleportPacket(menu.isMainHand(), dimension, x, y, z));
-    }
-
-    private Double parseCoordinate(String raw) {
-        try {
-            return Double.parseDouble(raw.trim());
-        } catch (NumberFormatException e) {
-            return null;
-        }
+    private void addButton(Button button) {
+        rowButtons.add(button);
+        this.addRenderableWidget(button);
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    protected void containerTick() {
+        super.containerTick();
 
-        if (super.mouseClicked(mouseX, mouseY, button)) {
-            return true;
+        if (menu.getSyncVersion() != lastSeenSyncVersion) {
+            lastSeenSyncVersion = menu.getSyncVersion();
+            slotDetails = menu.getSlotDetails();
+            refreshButtons();
+        } else if (misrecallPercent() != lastChancePercent) {
+            refreshButtons();
         }
-
-        if (button == 0) {
-            int index = slotRowAt(mouseX, mouseY);
-            if (index >= 0 && index != renamingIndex) {
-                boolean forceRecord = hasShiftDown();
-                ModPacketHandler.sendToServer(new StaffSlotActionPacket(menu.isMainHand(), index, forceRecord));
-                this.onClose();
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private int slotRowAt(double mouseX, double mouseY) {
-        int listY = topPos + 34;
-        for (int i = 0; i < slotLabels.size(); i++) {
-            int y = listY + i * ROW_HEIGHT;
-            if (mouseX >= leftPos + 10 && mouseX <= leftPos + imageWidth - 10 && mouseY >= y && mouseY <= y + ROW_HEIGHT - 2) {
-                return i;
-            }
-        }
-        return -1;
     }
 
     @Override
@@ -244,27 +122,22 @@ public class StaffTeleportScreen extends AbstractContainerScreen<StaffTeleportMe
 
         guiGraphics.drawCenteredString(this.font, this.title, leftPos + imageWidth / 2, topPos + 8, 0xFFE8C866);
 
-        int hoveredRow = slotRowAt(mouseX, mouseY);
-        int listY = topPos + 34;
-        for (int i = 0; i < slotLabels.size(); i++) {
-            int y = listY + i * ROW_HEIGHT;
-            boolean hovered = i == hoveredRow;
-            guiGraphics.fill(leftPos + 8, y, leftPos + imageWidth - 8, y + ROW_HEIGHT - 2, hovered ? 0xFF3A2F10 : 0xFF1E1A10);
+        for (int i = 0; i < slotDetails.size(); i++) {
+            int y = topPos + 34 + i * ROW_HEIGHT;
+            guiGraphics.fill(leftPos + 8, y, leftPos + 8 + TEXT_BOX_WIDTH, y + ROW_HEIGHT - 4, 0xFF1E1A10);
 
-            if (i == renamingIndex) {
-
-                guiGraphics.drawString(this.font, "Slot " + (i + 1) + ":", leftPos + 14, y - 9, 0xFFC8A028, false);
+            guiGraphics.drawString(this.font, "Location " + (i + 1), leftPos + 12, y + 3, 0xFFC8A028, false);
+            String detail = slotDetails.get(i);
+            if (detail.isEmpty()) {
+                guiGraphics.drawString(this.font, "Empty", leftPos + 12, y + 12, 0xFF6A6048, false);
             } else {
-                guiGraphics.drawString(this.font, "Slot " + (i + 1) + ": " + slotLabels.get(i), leftPos + 14, y + 5, 0xFFEAD9A0, false);
+                guiGraphics.drawString(this.font, this.font.plainSubstrByWidth(detail, TEXT_BOX_WIDTH - 8),
+                        leftPos + 12, y + 12, 0xFFEAD9A0, false);
             }
         }
 
-        int typedLabelY = listY + slotLabels.size() * ROW_HEIGHT + 6 - 12;
-        guiGraphics.drawString(this.font, "Dimension, then X/Y/Z (30% random, 5% Spirit World):", leftPos + 10, typedLabelY, 0xFF8A7A50, false);
-
-        if (errorMessage != null) {
-            guiGraphics.drawCenteredString(this.font, errorMessage, leftPos + imageWidth / 2, topPos + imageHeight - 12, 0xFFFF6060);
-        }
+        guiGraphics.drawCenteredString(this.font, Component.literal("Misremember chance: " + misrecallPercent() + "% (Panic raises it)"),
+                leftPos + imageWidth / 2, topPos + imageHeight - 14, 0xFF8A7A50);
     }
 
     @Override

@@ -13,45 +13,42 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class StaffTeleportMenu extends AbstractContainerMenu {
-
     private final boolean mainHand;
-    private final List<String> slotLabels;
-    private final List<String> slotNames;
+    private List<String> slotDetails;
+    private int syncVersion = 0;
 
     public StaffTeleportMenu(int containerId, Inventory playerInventory, RegistryFriendlyByteBuf buf) {
-        this(containerId, buf.readBoolean(), readLabelsThenNames(buf));
+        this(containerId, buf.readBoolean(), readDetails(buf));
     }
 
-    private StaffTeleportMenu(int containerId, boolean mainHand, List<List<String>> labelsAndNames) {
-        this(containerId, mainHand, labelsAndNames.get(0), labelsAndNames.get(1));
-    }
-
-    public StaffTeleportMenu(int containerId, boolean mainHand, List<String> slotLabels, List<String> slotNames) {
+    public StaffTeleportMenu(int containerId, boolean mainHand, List<String> slotDetails) {
         super(ModMenuTypes.STAFF_TELEPORT_MENU.get(), containerId);
         this.mainHand = mainHand;
-        this.slotLabels = slotLabels;
-        this.slotNames = slotNames;
+        applySync(slotDetails);
     }
 
-    private static List<List<String>> readLabelsThenNames(RegistryFriendlyByteBuf buf) {
+    public void applySync(List<String> slotDetails) {
+        this.slotDetails = slotDetails;
+        this.syncVersion++;
+    }
+
+    public int getSyncVersion() {
+        return syncVersion;
+    }
+
+    private static List<String> readDetails(RegistryFriendlyByteBuf buf) {
         int size = buf.readVarInt();
-        List<String> labels = new ArrayList<>(size);
-        for (int i = 0; i < size; i++) labels.add(buf.readUtf());
-        List<String> names = new ArrayList<>(size);
-        for (int i = 0; i < size; i++) names.add(buf.readUtf());
-        return List.of(labels, names);
+        List<String> details = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) details.add(buf.readUtf());
+        return details;
     }
 
     public boolean isMainHand() {
         return mainHand;
     }
 
-    public List<String> getSlotLabels() {
-        return slotLabels;
-    }
-
-    public List<String> getSlotNames() {
-        return slotNames;
+    public List<String> getSlotDetails() {
+        return slotDetails;
     }
 
     public InteractionHand getHand() {

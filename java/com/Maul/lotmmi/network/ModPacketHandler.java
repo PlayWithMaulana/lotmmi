@@ -2,6 +2,7 @@ package com.Maul.lotmmi.network;
 
 import com.Maul.lotmmi.LotmMysticalItems;
 import com.Maul.lotmmi.network.packets.toClient.SyncItemIntrospectPacket;
+import com.Maul.lotmmi.network.packets.toClient.SyncStaffTeleportPacket;
 import com.Maul.lotmmi.network.packets.toClient.SyncScepterIntrospectPacket;
 import com.Maul.lotmmi.network.packets.toServer.ChooseGrazeAbilityPacket;
 import com.Maul.lotmmi.network.packets.toServer.CreateCharmPacket;
@@ -13,9 +14,7 @@ import com.Maul.lotmmi.network.packets.toServer.OpenScepterIntrospectPacket;
 import com.Maul.lotmmi.network.packets.toServer.OpenStaffIntrospectPacket;
 import com.Maul.lotmmi.network.packets.toServer.PrayerActionPacket;
 import com.Maul.lotmmi.network.packets.toServer.StaffAbilityActionPacket;
-import com.Maul.lotmmi.network.packets.toServer.StaffRenameSlotPacket;
 import com.Maul.lotmmi.network.packets.toServer.StaffSlotActionPacket;
-import com.Maul.lotmmi.network.packets.toServer.StaffTypedTeleportPacket;
 import com.Maul.lotmmi.network.packets.toServer.ReorderAbilityPacket;
 import com.Maul.lotmmi.network.packets.toServer.SelectSoulPacket;
 import com.Maul.lotmmi.network.packets.toServer.SpewSoulPacket;
@@ -27,7 +26,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public class ModPacketHandler {
 
-    private static final String PROTOCOL_VERSION = "6";
+    private static final String PROTOCOL_VERSION = "7";
 
     public static void register(RegisterPayloadHandlersEvent event) {
         final PayloadRegistrar registrar = event.registrar(LotmMysticalItems.MOD_ID)
@@ -117,6 +116,12 @@ public class ModPacketHandler {
                 SyncItemIntrospectPacket::handle
         );
 
+        registrar.playToClient(
+                SyncStaffTeleportPacket.TYPE,
+                SyncStaffTeleportPacket.STREAM_CODEC,
+                SyncStaffTeleportPacket::handle
+        );
+
         registrar.playToServer(
                 OpenStaffIntrospectPacket.TYPE,
                 OpenStaffIntrospectPacket.STREAM_CODEC,
@@ -134,18 +139,6 @@ public class ModPacketHandler {
                 StaffSlotActionPacket.STREAM_CODEC,
                 StaffSlotActionPacket::handle
         );
-        registrar.playToServer(
-                StaffRenameSlotPacket.TYPE,
-                StaffRenameSlotPacket.STREAM_CODEC,
-                StaffRenameSlotPacket::handle
-        );
-
-        registrar.playToServer(
-                StaffTypedTeleportPacket.TYPE,
-                StaffTypedTeleportPacket.STREAM_CODEC,
-                StaffTypedTeleportPacket::handle
-        );
-
     }
 
     public static void sendToServer(CustomPacketPayload packet) {

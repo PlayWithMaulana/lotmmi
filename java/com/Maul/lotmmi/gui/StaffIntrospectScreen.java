@@ -23,11 +23,23 @@ public class StaffIntrospectScreen extends AbstractContainerScreen<StaffIntrospe
 
     private int topPage = 0;
     private int bottomPage = 0;
+    private int lastSeenSyncVersion;
 
     public StaffIntrospectScreen(StaffIntrospectMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         this.imageWidth = 240;
         this.imageHeight = 300;
+        this.lastSeenSyncVersion = menu.getSyncVersion();
+    }
+
+    @Override
+    protected void containerTick() {
+        super.containerTick();
+
+        if (menu.getSyncVersion() != lastSeenSyncVersion) {
+            lastSeenSyncVersion = menu.getSyncVersion();
+            init();
+        }
     }
 
     @Override
@@ -105,7 +117,6 @@ public class StaffIntrospectScreen extends AbstractContainerScreen<StaffIntrospe
 
     private void sendAbilityAction(int action, String abilityId, int wheelIndex) {
         ModPacketHandler.sendToServer(new StaffAbilityActionPacket(menu.isMainHand(), action, abilityId, wheelIndex));
-        this.onClose();
     }
 
     private int maxPage(int itemCount) {
@@ -147,14 +158,14 @@ public class StaffIntrospectScreen extends AbstractContainerScreen<StaffIntrospe
 
         List<String> wheelLabels = menu.getWheelLabels();
         int topY = topPos + 32;
-        guiGraphics.drawString(this.font, "Wheel - " + wheelLabels.size() + " abilities (^v reorder, Off removes):",
+        guiGraphics.drawString(this.font, "Wheel (" + wheelLabels.size() + ")",
                 leftPos + 10, topY - 10, LABEL_COLOR, false);
         drawRowsPage(guiGraphics, wheelLabels, topY, topPage, 74);
         drawPageLabel(guiGraphics, topY, topPage, maxPage(wheelLabels.size()));
 
         List<String> libraryLabels = menu.getLibraryLabels();
         int bottomY = bottomSectionTopY();
-        guiGraphics.drawString(this.font, "Recorded abilities - " + libraryLabels.size() + " known:",
+        guiGraphics.drawString(this.font, "Recorded (" + libraryLabels.size() + ")",
                 leftPos + 10, bottomY - 10, LABEL_COLOR, false);
         drawRowsPage(guiGraphics, libraryLabels, bottomY, bottomPage, 90);
         drawPageLabel(guiGraphics, bottomY, bottomPage, maxPage(libraryLabels.size()));

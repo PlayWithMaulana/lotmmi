@@ -15,8 +15,9 @@ import java.util.List;
 public class StaffIntrospectMenu extends AbstractContainerMenu {
 
     private final boolean mainHand;
-    private final List<String> libraryIds, libraryLabels;
-    private final List<String> wheelIds, wheelLabels;
+    private List<String> libraryIds, libraryLabels;
+    private List<String> wheelIds, wheelLabels;
+    private int syncVersion = 0;
 
     public StaffIntrospectMenu(int containerId, Inventory playerInventory, RegistryFriendlyByteBuf buf) {
         this(containerId, buf.readBoolean(), readStrings(buf), readStrings(buf), readStrings(buf), readStrings(buf));
@@ -27,11 +28,19 @@ public class StaffIntrospectMenu extends AbstractContainerMenu {
                                 List<String> wheelIds, List<String> wheelLabels) {
         super(ModMenuTypes.STAFF_INTROSPECT_MENU.get(), containerId);
         this.mainHand = mainHand;
+        applySync(libraryIds, libraryLabels, wheelIds, wheelLabels);
+    }
+
+    public void applySync(List<String> libraryIds, List<String> libraryLabels,
+                          List<String> wheelIds, List<String> wheelLabels) {
         this.libraryIds = libraryIds;
         this.libraryLabels = libraryLabels;
         this.wheelIds = wheelIds;
         this.wheelLabels = wheelLabels;
+        this.syncVersion++;
     }
+
+    public int getSyncVersion() { return syncVersion; }
 
     private static List<String> readStrings(RegistryFriendlyByteBuf buf) {
         int size = buf.readVarInt();

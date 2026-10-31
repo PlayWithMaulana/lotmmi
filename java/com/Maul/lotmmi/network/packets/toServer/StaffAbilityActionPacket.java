@@ -4,6 +4,7 @@ import com.Maul.lotmmi.LotmMysticalItems;
 import com.Maul.lotmmi.item.ModItems;
 import com.Maul.lotmmi.item.custom.StaffAbilityUtil;
 import com.Maul.lotmmi.item.custom.StaffMemoryUtil;
+import com.Maul.lotmmi.network.packets.toClient.SyncStaffIntrospectPacket;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
@@ -42,6 +43,7 @@ public record StaffAbilityActionPacket(boolean mainHand, int action, String abil
     public static void handle(StaffAbilityActionPacket packet, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (!(context.player() instanceof ServerPlayer player)) return;
+            if (com.Maul.lotmmi.events.StaffCurseHandler.isCursed(player)) return;
 
             InteractionHand hand = packet.mainHand() ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
             ItemStack stack = player.getItemInHand(hand);
@@ -70,6 +72,8 @@ public record StaffAbilityActionPacket(boolean mainHand, int action, String abil
                     StaffAbilityUtil.rebuildSealedArtifactData(stack);
                 }
             }
+
+            SyncStaffIntrospectPacket.sendTo(player, stack);
         });
     }
 }

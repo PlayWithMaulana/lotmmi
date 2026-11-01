@@ -69,6 +69,12 @@ public final class LotmmiConfig {
             .comment("Minutes between the Sea God Scepter's Blood Drain pulses while it is carried (20 ticks per second).")
             .defineInRange("bloodDrainIntervalMinutes", 35, 1, 100000);
 
+    public static final ModConfigSpec.DoubleValue QILANGOS_SPAWN_RATE = BUILDER
+            .comment("How often Qilangos spawns naturally in the Overworld. 1.0 (default) is about as rare as an ocean monument. "
+                    + "0 = never, 0.1 = almost never, 0.5 = rarer, 2 = twice as common, 4 = any region (still uncommon), "
+                    + "20 = fairly common, 100+ = very common. Spawn eggs, commands and spawners are not affected.")
+            .defineInRange("qilangosSpawnRate", 1.0D, 0.0D, 1000.0D);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     private LotmmiConfig() {

@@ -19,14 +19,11 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.level.biome.Biome;
@@ -38,12 +35,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class QilangosEntity extends BeyonderNPCEntity {
-
     private static final ResourceLocation SKIN =
             ResourceLocation.fromNamespaceAndPath(LotmMysticalItems.MOD_ID, "textures/entity/qilangos.png");
 
-    private static final float LAND_SPAWN_CHANCE = 0.27F;
-    private static final float COAST_SPAWN_CHANCE = 0.37F;
+    private static final double LAND_SPAWN_CHANCE = 0.003D;
+    private static final double COAST_SPAWN_CHANCE = 0.004D;
+
+    private static final int TERRITORY_SIZE = 512;
+    private static final double TERRITORY_CHANCE = 0.25D;
     private static final double EXCLUSION_RADIUS = 128.0D;
     private static final int MAX_DEPTH_BELOW_SURFACE = 4;
 
@@ -58,20 +57,29 @@ public class QilangosEntity extends BeyonderNPCEntity {
 
     public QilangosEntity(EntityType<? extends QilangosEntity> type, Level level) {
         super(type, level, true, "qilangos", "tyrant", 6, false, false);
-        if (!level.isClientSide) {
-            this.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.DIAMOND_SWORD));
-            this.setDropChance(EquipmentSlot.MAINHAND, 0.0F);
-        }
     }
 
     public static AttributeSupplier.Builder createAttributes() {
         return BeyonderNPCEntity.createAttributes()
-                .add(Attributes.MAX_HEALTH, 80.0D)
+                .add(Attributes.MAX_HEALTH, 100.0D)
                 .add(Attributes.FOLLOW_RANGE, 40.0D)
                 .add(Attributes.MOVEMENT_SPEED, 0.28D)
                 .add(Attributes.ATTACK_DAMAGE, 4.0D)
                 .add(Attributes.ARMOR, 4.0D)
                 .add(Attributes.KNOCKBACK_RESISTANCE, 0.4D);
+    }
+
+    private static boolean inTerritory(ServerLevelAccessor level, BlockPos pos, double chance) {
+        int cellX = Math.floorDiv(pos.getX(), TERRITORY_SIZE);
+        int cellZ = Math.floorDiv(pos.getZ(), TERRITORY_SIZE);
+
+        long hash = level.getLevel().getSeed() ^ (cellX * 341873128712L) ^ (cellZ * 132897987541L) ^ 0x5DEECE66DL;
+        hash = (hash ^ (hash >>> 33)) * 0xff51afd7ed558ccdL;
+        hash = (hash ^ (hash >>> 33)) * 0xc4ceb9fe1a85ec53L;
+        hash ^= hash >>> 33;
+
+        double roll = (hash >>> 11) * 0x1.0p-53;
+        return roll < chance;
     }
 
     public static boolean checkQilangosSpawn(EntityType<QilangosEntity> type, ServerLevelAccessor level,
@@ -81,6 +89,10 @@ public class QilangosEntity extends BeyonderNPCEntity {
         if (!level.getServer().overworld().getGameRules().getBoolean(ModGameRules.ALLOW_BEYONDER_SPAWNING)) {
             return false;
         }
+
+        double rate = com.Maul.lotmmi.config.LotmmiConfig.QILANGOS_SPAWN_RATE.get();
+        if (rate <= 0.0D) return false;
+        if (!inTerritory(level, pos, Math.min(1.0D, TERRITORY_CHANCE * rate))) return false;
 
         int surfaceY = level.getHeight(Heightmap.Types.WORLD_SURFACE, pos.getX(), pos.getZ());
         if (surfaceY - pos.getY() > MAX_DEPTH_BELOW_SURFACE) return false;
@@ -93,7 +105,9 @@ public class QilangosEntity extends BeyonderNPCEntity {
 
         Holder<Biome> biome = level.getBiome(pos);
         boolean coastal = biome.is(BiomeTags.IS_OCEAN) || biome.is(BiomeTags.IS_BEACH);
-        if (random.nextFloat() >= (coastal ? COAST_SPAWN_CHANCE : LAND_SPAWN_CHANCE)) return false;
+
+        double chance = (coastal ? COAST_SPAWN_CHANCE : LAND_SPAWN_CHANCE) * Math.max(1.0D, rate * TERRITORY_CHANCE);
+        if (random.nextDouble() >= Math.min(1.0D, chance)) return false;
 
         AABB area = new AABB(pos).inflate(EXCLUSION_RADIUS);
         return level.getEntitiesOfClass(QilangosEntity.class, area).isEmpty();

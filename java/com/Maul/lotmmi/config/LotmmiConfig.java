@@ -75,6 +75,38 @@ public final class LotmmiConfig {
                     + "20 = fairly common, 100+ = very common. Spawn eggs, commands and spawners are not affected.")
             .defineInRange("qilangosSpawnRate", 1.0D, 0.0D, 1000.0D);
 
+    public static final ModConfigSpec.BooleanValue DIE_ENABLED = BUILDER
+            .comment("Enables the Die of Probability behaviour on the base mod's Dice of Probability item.")
+            .define("dieEnabled", true);
+
+    public static final ModConfigSpec.IntValue DIE_REROLL_MIN_MINUTES = BUILDER
+            .comment("Shortest time in game minutes before the die changes its face.")
+            .defineInRange("dieRerollMinMinutes", 10, 1, 100000);
+
+    public static final ModConfigSpec.IntValue DIE_REROLL_MAX_MINUTES = BUILDER
+            .comment("Longest time in game minutes before the die changes its face.")
+            .defineInRange("dieRerollMaxMinutes", 40, 1, 100000);
+
+    public static final ModConfigSpec.IntValue DIE_LUCK_PER_FACE = BUILDER
+            .comment("Luck added or removed for each step away from the middle of the die. Faces 1-3 subtract, faces 4-6 add. Face 1 and 6 are the strongest.")
+            .defineInRange("dieLuckPerFace", 150, 0, 100000);
+
+    public static final ModConfigSpec.IntValue DIE_LEAK_RADIUS = BUILDER
+            .comment("Blocks around a carried die whose creatures are also touched by its luck. 0 turns the leak off.")
+            .defineInRange("dieLeakRadius", 16, 0, 128);
+
+    public static final ModConfigSpec.DoubleValue DIE_LEAK_FRACTION = BUILDER
+            .comment("Share of the holder's luck swing that leaks onto nearby creatures.")
+            .defineInRange("dieLeakFraction", 0.4D, 0.0D, 1.0D);
+
+    public static final ModConfigSpec.DoubleValue DIE_FACE_ONE_DEATH_PER_MINUTE = BUILDER
+            .comment("Chance per minute that a holder showing face 1 is struck by a calamity: lightning, a falling anvil and a blast, all at once. Almost always fatal. A totem of undying still works. Blocks are not destroyed.")
+            .defineInRange("dieFaceOneDeathPerMinute", 0.03D, 0.0D, 1.0D);
+
+    public static final ModConfigSpec.DoubleValue DIE_FACE_TWO_ACCIDENT_PER_MINUTE = BUILDER
+            .comment("Chance per minute that a holder showing face 2 is struck by one random calamity (lightning, a falling anvil or a blast). Lethal if already hurt.")
+            .defineInRange("dieFaceTwoAccidentPerMinute", 0.02D, 0.0D, 1.0D);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     private LotmmiConfig() {

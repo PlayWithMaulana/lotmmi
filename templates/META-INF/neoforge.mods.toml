@@ -8,7 +8,7 @@ modId="lotmmi"
 version="1.0.0"
 displayName="LOTM Mystical Items"
 authors="Maul"
-description="An addon for LotMCraft that adds mystical items from Lord of the Mysteries"
+description="Hand-built, canon-inspired mystical items for LotMCraft: the soul-grazing Creeping Hunger and its Awakened form, the Staff of the Stars, the Sea God Scepter and the pirate Qilangos."
 
 [[dependencies.lotmmi]]
     modId="neoforge"

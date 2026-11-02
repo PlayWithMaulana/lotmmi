@@ -1,6 +1,4 @@
 {
-	"format_version": "1.21.11",
-	"credit": "Made with Blockbench",
 	"textures": {
 		"0": "lotmmi:item/awakened_creeping_hunger/plates",
 		"1": "lotmmi:item/awakened_creeping_hunger/core",

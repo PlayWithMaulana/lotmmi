@@ -18,6 +18,12 @@ public class StaffIntrospectScreen extends AbstractContainerScreen<StaffIntrospe
     private static final int ROWS_PER_PAGE = 6;
     private static final ResourceLocation PANEL_BACKGROUND = ResourceLocation.fromNamespaceAndPath(
             LotmMysticalItems.MOD_ID, "textures/gui/staff_introspect/panel_background.png");
+    private static final int PANEL_TEXTURE_W = 240;
+    private static final int PANEL_TEXTURE_H = 300;
+    private static final int PANEL_EDGE = 8;
+    private static final int ROW_PADDING = 24;
+    private static final int WHEEL_BUTTONS = 74;
+    private static final int LIBRARY_BUTTONS = 90;
     private static final int TITLE_COLOR = 0xFFE8C866;
     private static final int LABEL_COLOR = 0xFFC8A028;
 
@@ -42,8 +48,20 @@ public class StaffIntrospectScreen extends AbstractContainerScreen<StaffIntrospe
         }
     }
 
+    private int wantedWidth() {
+        int needed = PANEL_TEXTURE_W;
+        for (String label : menu.getLibraryLabels()) {
+            needed = Math.max(needed, this.font.width(label) + ROW_PADDING + LIBRARY_BUTTONS + 2);
+        }
+        for (String label : menu.getWheelLabels()) {
+            needed = Math.max(needed, this.font.width(label) + ROW_PADDING + WHEEL_BUTTONS + 2);
+        }
+        return Math.min(needed, Math.max(PANEL_TEXTURE_W, this.width - 16));
+    }
+
     @Override
     protected void init() {
+        this.imageWidth = wantedWidth();
         super.init();
         this.leftPos = (this.width - this.imageWidth) / 2;
         this.topPos = (this.height - this.imageHeight) / 2;
@@ -153,22 +171,43 @@ public class StaffIntrospectScreen extends AbstractContainerScreen<StaffIntrospe
     @Override
     protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
         guiGraphics.fill(0, 0, this.width, this.height, 0x90000000);
-        guiGraphics.blit(PANEL_BACKGROUND, leftPos, topPos, 0, 0, imageWidth, imageHeight, imageWidth, imageHeight);
+        drawPanel(guiGraphics);
         guiGraphics.drawCenteredString(this.font, this.title, leftPos + imageWidth / 2, topPos + 6, TITLE_COLOR);
 
         List<String> wheelLabels = menu.getWheelLabels();
         int topY = topPos + 32;
         guiGraphics.drawString(this.font, "Wheel (" + wheelLabels.size() + ")",
                 leftPos + 10, topY - 10, LABEL_COLOR, false);
-        drawRowsPage(guiGraphics, wheelLabels, topY, topPage, 74);
+        drawRowsPage(guiGraphics, wheelLabels, topY, topPage, WHEEL_BUTTONS);
         drawPageLabel(guiGraphics, topY, topPage, maxPage(wheelLabels.size()));
 
         List<String> libraryLabels = menu.getLibraryLabels();
         int bottomY = bottomSectionTopY();
         guiGraphics.drawString(this.font, "Recorded (" + libraryLabels.size() + ")",
                 leftPos + 10, bottomY - 10, LABEL_COLOR, false);
-        drawRowsPage(guiGraphics, libraryLabels, bottomY, bottomPage, 90);
+        drawRowsPage(guiGraphics, libraryLabels, bottomY, bottomPage, LIBRARY_BUTTONS);
         drawPageLabel(guiGraphics, bottomY, bottomPage, maxPage(libraryLabels.size()));
+    }
+
+    private void drawPanel(GuiGraphics guiGraphics) {
+        int height = Math.min(imageHeight, PANEL_TEXTURE_H);
+        if (imageWidth <= PANEL_TEXTURE_W) {
+            guiGraphics.blit(PANEL_BACKGROUND, leftPos, topPos, 0.0F, 0.0F, imageWidth, height, PANEL_TEXTURE_W, PANEL_TEXTURE_H);
+            return;
+        }
+
+        guiGraphics.blit(PANEL_BACKGROUND, leftPos, topPos, 0.0F, 0.0F, PANEL_EDGE, height, PANEL_TEXTURE_W, PANEL_TEXTURE_H);
+
+        int middleTexture = PANEL_TEXTURE_W - 2 * PANEL_EDGE;
+        int middleNeeded = imageWidth - 2 * PANEL_EDGE;
+        for (int drawn = 0; drawn < middleNeeded; drawn += middleTexture) {
+            int piece = Math.min(middleTexture, middleNeeded - drawn);
+            guiGraphics.blit(PANEL_BACKGROUND, leftPos + PANEL_EDGE + drawn, topPos, (float) PANEL_EDGE, 0.0F,
+                    piece, height, PANEL_TEXTURE_W, PANEL_TEXTURE_H);
+        }
+
+        guiGraphics.blit(PANEL_BACKGROUND, leftPos + imageWidth - PANEL_EDGE, topPos,
+                (float) (PANEL_TEXTURE_W - PANEL_EDGE), 0.0F, PANEL_EDGE, height, PANEL_TEXTURE_W, PANEL_TEXTURE_H);
     }
 
     private void drawRowsPage(GuiGraphics guiGraphics, List<String> labels, int listY, int page, int rightReserved) {
@@ -186,7 +225,7 @@ public class StaffIntrospectScreen extends AbstractContainerScreen<StaffIntrospe
             guiGraphics.fill(leftPos + 8, y, leftPos + imageWidth - 8, y + ROW_HEIGHT - 2, 0xFF221836);
 
             String text = labels.get(i);
-            int maxWidth = imageWidth - 24 - rightReserved;
+            int maxWidth = imageWidth - ROW_PADDING - rightReserved;
             if (this.font.width(text) > maxWidth) {
                 while (!text.isEmpty() && this.font.width(text + "...") > maxWidth) {
                     text = text.substring(0, text.length() - 1);

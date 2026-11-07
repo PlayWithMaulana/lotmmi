@@ -468,13 +468,14 @@ public class ItemIntrospectScreen extends AbstractContainerScreen<ItemIntrospect
                 }
             }
 
-            int cooldown = ability.getCooldown();
+            int sequence = activeSoul >= 0 && activeSoul < souls.size() ? souls.get(activeSoul).sequence() : 9;
+            int cooldown = AbilityStats.cooldown(ability, sequence);
             if (cooldown > 0) {
                 lines.add(Component.literal("Cooldown: ").withStyle(ChatFormatting.DARK_GRAY)
                         .append(Component.literal((cooldown / 20) + "s").withStyle(ChatFormatting.BLUE)));
             }
 
-            float spiritualityCost = ability.spiritualityCost();
+            float spiritualityCost = AbilityStats.spirituality(ability, sequence);
             if (spiritualityCost > 0) {
                 lines.add(Component.literal("Spirituality Cost: ").withStyle(ChatFormatting.DARK_GRAY)
                         .append(Component.literal(spiritualityCost + "").withStyle(ChatFormatting.DARK_PURPLE)));

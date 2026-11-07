@@ -209,13 +209,13 @@ public class GrazeChoiceScreen extends AbstractContainerScreen<GrazeChoiceMenu> 
             }
         }
 
-        int cooldown = ability.getCooldown();
+        int cooldown = AbilityStats.cooldown(ability, menu.getSequence());
         if (cooldown > 0) {
             lines.add(Component.literal("Cooldown: ").withStyle(ChatFormatting.DARK_GRAY)
                     .append(Component.literal((cooldown / 20) + "s").withStyle(ChatFormatting.BLUE)));
         }
 
-        float spiritualityCost = ability.spiritualityCost();
+        float spiritualityCost = AbilityStats.spirituality(ability, menu.getSequence());
         if (spiritualityCost > 0) {
             lines.add(Component.literal("Spirituality Cost: ").withStyle(ChatFormatting.DARK_GRAY)
                     .append(Component.literal(spiritualityCost + "").withStyle(ChatFormatting.DARK_PURPLE)));

@@ -2,7 +2,7 @@ package com.Maul.lotmmi.events;
 
 import com.Maul.lotmmi.LotmMysticalItems;
 import de.jakob.lotm.LOTMCraft;
-import de.jakob.lotm.dimension.SpiritWorldHandler;
+import de.jakob.lotm.dimension.spirit_world.SpiritWorldHandler;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;

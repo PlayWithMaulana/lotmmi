@@ -1,9 +1,11 @@
 package com.Maul.lotmmi.client;
 
+import com.Maul.lotmmi.gui.ArrodesMenu;
 import com.Maul.lotmmi.gui.ItemIntrospectMenu;
 import com.Maul.lotmmi.gui.ScepterIntrospectMenu;
 import com.Maul.lotmmi.gui.StaffIntrospectMenu;
 import com.Maul.lotmmi.gui.StaffTeleportMenu;
+import com.Maul.lotmmi.network.packets.toClient.ArrodesReplyPacket;
 import com.Maul.lotmmi.network.packets.toClient.SyncItemIntrospectPacket;
 import com.Maul.lotmmi.network.packets.toClient.SyncScepterIntrospectPacket;
 import com.Maul.lotmmi.network.packets.toClient.SyncStaffIntrospectPacket;
@@ -11,6 +13,13 @@ import com.Maul.lotmmi.network.packets.toClient.SyncStaffTeleportPacket;
 import net.minecraft.client.Minecraft;
 
 public class ClientPacketHandler {
+
+    public static void arrodesReply(ArrodesReplyPacket packet) {
+        if (Minecraft.getInstance().player != null
+                && Minecraft.getInstance().player.containerMenu instanceof ArrodesMenu menu) {
+            menu.receive(packet.lines(), packet.kind());
+        }
+    }
 
     public static void syncItemIntrospect(SyncItemIntrospectPacket packet) {
         if (Minecraft.getInstance().player != null

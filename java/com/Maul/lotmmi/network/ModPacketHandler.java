@@ -1,10 +1,12 @@
 package com.Maul.lotmmi.network;
 
 import com.Maul.lotmmi.LotmMysticalItems;
+import com.Maul.lotmmi.network.packets.toClient.ArrodesReplyPacket;
 import com.Maul.lotmmi.network.packets.toClient.SyncItemIntrospectPacket;
 import com.Maul.lotmmi.network.packets.toClient.SyncStaffIntrospectPacket;
 import com.Maul.lotmmi.network.packets.toClient.SyncStaffTeleportPacket;
 import com.Maul.lotmmi.network.packets.toClient.SyncScepterIntrospectPacket;
+import com.Maul.lotmmi.network.packets.toServer.AskArrodesPacket;
 import com.Maul.lotmmi.network.packets.toServer.ChooseGrazeAbilityPacket;
 import com.Maul.lotmmi.network.packets.toServer.CreateCharmPacket;
 import com.Maul.lotmmi.network.packets.toServer.CycleSoulPacket;
@@ -27,7 +29,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public class ModPacketHandler {
 
-    private static final String PROTOCOL_VERSION = "8";
+    private static final String PROTOCOL_VERSION = "9";
 
     public static void register(RegisterPayloadHandlersEvent event) {
         final PayloadRegistrar registrar = event.registrar(LotmMysticalItems.MOD_ID)
@@ -145,6 +147,18 @@ public class ModPacketHandler {
                 StaffSlotActionPacket.TYPE,
                 StaffSlotActionPacket.STREAM_CODEC,
                 StaffSlotActionPacket::handle
+        );
+
+        registrar.playToServer(
+                AskArrodesPacket.TYPE,
+                AskArrodesPacket.STREAM_CODEC,
+                AskArrodesPacket::handle
+        );
+
+        registrar.playToClient(
+                ArrodesReplyPacket.TYPE,
+                ArrodesReplyPacket.STREAM_CODEC,
+                ArrodesReplyPacket::handle
         );
     }
 

@@ -1,6 +1,7 @@
 package com.Maul.lotmmi.client;
 
 import com.Maul.lotmmi.LotmMysticalItems;
+import com.Maul.lotmmi.gui.ArrodesScreen;
 import com.Maul.lotmmi.gui.GrazeChoiceScreen;
 import com.Maul.lotmmi.gui.ItemIntrospectScreen;
 import com.Maul.lotmmi.gui.ModMenuTypes;
@@ -57,6 +58,7 @@ public class ClientEvents {
         event.register(ModMenuTypes.STAFF_INTROSPECT_MENU.get(), StaffIntrospectScreen::new);
         event.register(ModMenuTypes.STAFF_TELEPORT_MENU.get(), StaffTeleportScreen::new);
         event.register(ModMenuTypes.SCEPTER_INTROSPECT_MENU.get(), ScepterIntrospectScreen::new);
+        event.register(ModMenuTypes.ARRODES_MENU.get(), ArrodesScreen::new);
     }
 
     @SubscribeEvent

@@ -33,6 +33,10 @@ public class ModMenuTypes {
             MENU_TYPES.register("scepter_introspect_menu", () ->
                     IMenuTypeExtension.create((windowId, inv, data) -> new ScepterIntrospectMenu(windowId, inv, data)));
 
+    public static final DeferredHolder<MenuType<?>, MenuType<ArrodesMenu>> ARRODES_MENU =
+            MENU_TYPES.register("arrodes_menu", () ->
+                    IMenuTypeExtension.create((windowId, inv, data) -> new ArrodesMenu(windowId, inv, data)));
+
     public static void register(IEventBus eventBus) {
         MENU_TYPES.register(eventBus);
     }

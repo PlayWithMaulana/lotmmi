@@ -20,6 +20,9 @@ public class ModLootModifiers {
     public static final Supplier<MapCodec<StaffOfStarsChestLootModifier>> STAFF_OF_STARS_CHEST_LOOT =
             LOOT_MODIFIERS.register("staff_of_stars_chest_loot", StaffOfStarsChestLootModifier.CODEC);
 
+    public static final Supplier<MapCodec<ArrodesChestLootModifier>> ARRODES_CHEST_LOOT =
+            LOOT_MODIFIERS.register("arrodes_chest_loot", ArrodesChestLootModifier.CODEC);
+
     public static void register(IEventBus modEventBus) {
         LOOT_MODIFIERS.register(modEventBus);
     }

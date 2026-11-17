@@ -107,6 +107,54 @@ public final class LotmmiConfig {
             .comment("Chance per minute that a holder showing face 2 is struck by one random calamity (lightning, a falling anvil or a blast). Lethal if already hurt.")
             .defineInRange("dieFaceTwoAccidentPerMinute", 0.02D, 0.0D, 1.0D);
 
+    public static final ModConfigSpec.DoubleValue ARRODES_SPIRITUALITY_COST = BUILDER
+            .comment("Spirituality a Beyonder pays for every answer Arrodes gives. Refusals, clarifying questions and punishments are free, and so is anyone who is not a Beyonder. The default of 13 is about an average Sequence 9 ability (the active Sequence 9 abilities cost 10 to 30, averaging about 13). 0 makes Arrodes free.")
+            .defineInRange("arrodesSpiritualityCost", 13.0D, 0.0D, 1000000.0D);
+
+    public static final ModConfigSpec.IntValue ARRODES_QUESTIONS_PER_USE = BUILDER
+            .comment("How many questions can be settled (asked and paid for) before Arrodes rests. The count also resets after a rest-length pause.")
+            .defineInRange("arrodesQuestionsPerUse", 5, 1, 1000);
+
+    public static final ModConfigSpec.IntValue ARRODES_COOLDOWN_SECONDS = BUILDER
+            .comment("Seconds Arrodes rests after the question limit is used up.")
+            .defineInRange("arrodesCooldownSeconds", 60, 0, 86400);
+
+    public static final ModConfigSpec.IntValue ARRODES_ANSWER_SECONDS = BUILDER
+            .comment("Seconds the holder has to answer Arrodes' question in chat before being struck by lightning.")
+            .defineInRange("arrodesAnswerSeconds", 15, 5, 3600);
+
+    public static final ModConfigSpec.IntValue ARRODES_BROADCAST_RADIUS = BUILDER
+            .comment("Blocks around the holder that hear Arrodes' question. 0 broadcasts to the whole server.")
+            .defineInRange("arrodesBroadcastRadius", 32, 0, 100000);
+
+    public static final ModConfigSpec.DoubleValue ARRODES_STRIKE_DAMAGE = BUILDER
+            .comment("Lightning damage to a Beyonder of Sequence 7 or stronger who fails to answer Arrodes. The default of 16 is about what a Tyrant's Sequence 5 Lightning deals (the base mod rolls 8.3 to 17.1 for that sequence).")
+            .defineInRange("arrodesLightningDamage", 16.0D, 0.0D, 1000.0D);
+
+    public static final ModConfigSpec.DoubleValue ARRODES_WEAK_KILL_CHANCE = BUILDER
+            .comment("Chance that the lightning kills a non-Beyonder or a Beyonder of Sequence 8 or 9 who fails to answer Arrodes. Those who survive the chance are left clinging to a sliver of health, never killed by the bolt itself.")
+            .defineInRange("arrodesWeakKillChance", 0.5D, 0.0D, 1.0D);
+
+    public static final ModConfigSpec.DoubleValue ARRODES_OWNER_STRIKE_DAMAGE = BUILDER
+            .comment("Lightning damage to a Sefirah Castle owner who ignores Arrodes' easy question.")
+            .defineInRange("arrodesOwnerStrikeDamage", 2.0D, 0.0D, 1000.0D);
+
+    public static final ModConfigSpec.BooleanValue ARRODES_FIND_PLAYER = BUILDER
+            .comment("Lets Arrodes tell where an online player roughly is, and which pathway and sequence they walk (never for Sequence 0 to 2, who are protected against divination, and the path of a Sequence 3 stays veiled). Turn off to prevent using it to hunt players.")
+            .define("arrodesFindPlayer", true);
+
+    public static final ModConfigSpec.BooleanValue ARRODES_SMITE_ILL_INTENT = BUILDER
+            .comment("Arrodes punishes a non-owner who asks it to help hunt, rob or harm players, or who tries to trick it, with a lightning strike or a curse. The punishment is free: it does not count as one of the settled questions. Sefirah Castle owners only get a polite refusal. Turn off to make everyone get a polite refusal.")
+            .define("arrodesSmiteIllIntent", true);
+
+    public static final ModConfigSpec.DoubleValue ARRODES_CURSE_CHANCE = BUILDER
+            .comment("When Arrodes punishes ill intent, the chance that it is a curse (Bad Luck, Weakness, Slowness, Darkness and Nausea, never lethal) instead of a lightning strike.")
+            .defineInRange("arrodesCurseChance", 0.4D, 0.0D, 1.0D);
+
+    public static final ModConfigSpec.DoubleValue ARRODES_CHEST_CHANCE = BUILDER
+            .comment("Chance that a generated chest contains Arrodes. Extremely small by default. 0 turns it off.")
+            .defineInRange("arrodesChestChance", 0.0015D, 0.0D, 1.0D);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     private LotmmiConfig() {

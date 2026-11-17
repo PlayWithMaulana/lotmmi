@@ -1,6 +1,7 @@
 package com.Maul.lotmmi.events;
 
 import com.Maul.lotmmi.LotmMysticalItems;
+import com.Maul.lotmmi.command.ArrodesCommand;
 import com.Maul.lotmmi.command.CreepingHungerCommand;
 import com.Maul.lotmmi.item.custom.AwakenedCreepingHungerItem;
 import com.Maul.lotmmi.item.custom.CreepingHungerItem;
@@ -23,6 +24,7 @@ public class ModEvents {
     @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
         CreepingHungerCommand.register(event.getDispatcher());
+        ArrodesCommand.register(event.getDispatcher());
     }
 
     @SubscribeEvent

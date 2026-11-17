@@ -15,6 +15,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
@@ -32,6 +33,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -44,22 +46,33 @@ public final class ArrodesHandler {
 
     private static final class Pending {
         final boolean owner;
+        final ArrodesVoice.OwnerAsk ask;
         final String question;
         volatile long askAt;
         volatile long deadline;
         volatile boolean asked;
 
-        Pending(boolean owner, String question, long askAt) {
+        Pending(boolean owner, ArrodesVoice.OwnerAsk ask, String question, long askAt) {
             this.owner = owner;
+            this.ask = ask;
             this.question = question;
             this.askAt = askAt;
         }
     }
 
+    private record Talk(String line, List<String> bonus) {
+    }
+
+    private static final List<String> OWNER_OTHER_ANY = concat(ArrodesVoice.OWNER_OTHER, ArrodesVoice.OWNER_ACCEPTED);
+
     private static final Map<UUID, Pending> PENDING = new ConcurrentHashMap<>();
     private static final Map<UUID, Long> COOLDOWN = new ConcurrentHashMap<>();
     private static final Map<UUID, Integer> USED = new ConcurrentHashMap<>();
     private static final Map<UUID, Long> RESET_AT = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> REMARK_MUTE = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> REMARK_BOOST = new ConcurrentHashMap<>();
+    private static final Map<UUID, String> LAST_REMARK = new ConcurrentHashMap<>();
+    private static final Set<UUID> REMARKED = ConcurrentHashMap.newKeySet();
 
     private ArrodesHandler() {
     }
@@ -77,6 +90,11 @@ public final class ArrodesHandler {
         USED.remove(id);
         RESET_AT.remove(id);
         player.getCooldowns().removeCooldown(ModItems.ARRODES.get());
+        ArrodesMirror.reset(player);
+    }
+
+    static boolean hasPending(ServerPlayer player) {
+        return PENDING.containsKey(player.getUUID());
     }
 
     public static void open(ServerPlayer player) {
@@ -101,6 +119,17 @@ public final class ArrodesHandler {
                 : owner ? ArrodesVoice.pick(ArrodesVoice.OWNER_GREETINGS, player.serverLevel().random) : ArrodesVoice.SILENT_GREETING;
 
         player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 0.8F, 0.5F);
+        openMenu(player, owner, answering, opening);
+    }
+
+    /** Opens the question screen for a mirror session. The item's own rest period does not apply there. */
+    static void openMirrorMenu(ServerPlayer player, boolean owner, String opening) {
+        Pending pending = PENDING.get(player.getUUID());
+        boolean answering = pending != null && pending.asked;
+        openMenu(player, owner, answering, answering ? pending.question : opening);
+    }
+
+    private static void openMenu(ServerPlayer player, boolean owner, boolean answering, String opening) {
         player.openMenu(new ArrodesMenuProvider(owner, answering, opening), buf -> {
             buf.writeBoolean(owner);
             buf.writeBoolean(answering);
@@ -116,6 +145,7 @@ public final class ArrodesHandler {
 
         long now = server.getTickCount();
         UUID id = player.getUUID();
+        ArrodesMirror.touch(player);
 
         Pending pending = PENDING.get(id);
         if (pending != null) {
@@ -128,7 +158,7 @@ public final class ArrodesHandler {
         }
 
         Long until = COOLDOWN.get(id);
-        if (until != null && until > now) {
+        if (until != null && until > now && !ArrodesMirror.hasSession(player)) {
             long seconds = (until - now + 19L) / 20L;
             reply(player, ArrodesReplyPacket.KIND_NOTE, List.of("The mirror is silent. Return in " + seconds + " seconds."));
             return;
@@ -147,8 +177,10 @@ public final class ArrodesHandler {
         for (String line : result.lines()) player.sendSystemMessage(arrodes(line));
 
         if (result.kind() == ArrodesParser.Kind.ANSWER) {
-            String question = ArrodesVoice.pick(owner ? ArrodesVoice.OWNER_QUESTIONS : ArrodesVoice.QUESTIONS, player.serverLevel().random);
-            PENDING.put(id, new Pending(owner, question, now + QUESTION_DELAY_TICKS));
+            RandomSource random = player.serverLevel().random;
+            ArrodesVoice.OwnerAsk ask = owner ? ArrodesVoice.pickAsk(random) : null;
+            String question = owner ? ask.text() : ArrodesVoice.pick(ArrodesVoice.QUESTIONS, random);
+            PENDING.put(id, new Pending(owner, ask, question, now + QUESTION_DELAY_TICKS));
         }
     }
 
@@ -202,20 +234,128 @@ public final class ArrodesHandler {
         }
 
         PENDING.remove(player.getUUID());
-        boolean locked = settle(player, server.getTickCount());
+        long now = server.getTickCount();
+        boolean mirror = ArrodesMirror.hasSession(player);
+        String lockedText = settle(player, now, pending.owner);
 
-        String reaction = ArrodesVoice.pick(pending.owner ? ArrodesVoice.OWNER_ACCEPTED : ArrodesVoice.ACCEPTED, player.serverLevel().random);
+        String reaction;
+        List<String> bonus = List.of();
+        if (pending.owner && pending.ask != null) {
+            Talk talk = ownerTalk(player, pending.ask, trimmed, now);
+            reaction = talk.line();
+            bonus = talk.bonus();
+        } else {
+            reaction = ArrodesVoice.pick(pending.owner ? ArrodesVoice.OWNER_ACCEPTED : ArrodesVoice.ACCEPTED, player.serverLevel().random);
+        }
         broadcast(player, arrodes(reaction));
 
         List<String> lines = new ArrayList<>();
         lines.add(reaction);
-        if (pending.owner) {
-            String tip = ArrodesParser.tip(player);
-            player.sendSystemMessage(arrodes(tip));
-            lines.add(tip);
+        for (String extra : bonus) {
+            player.sendSystemMessage(arrodes(extra));
+            lines.add(extra);
         }
-        if (locked) lines.add(lockedLine(pending.owner));
-        reply(player, locked ? ArrodesReplyPacket.KIND_LOCKED : ArrodesReplyPacket.KIND_DONE, lines);
+        if (pending.owner) {
+            String remark = ownerRemark(player, now);
+            if (remark != null) {
+                player.sendSystemMessage(arrodes(remark));
+                lines.add(remark);
+            }
+        }
+        if (lockedText != null) {
+            lines.add(lockedText);
+            if (mirror) broadcast(player, arrodes(lockedText));
+        }
+        reply(player, lockedText != null ? ArrodesReplyPacket.KIND_LOCKED : ArrodesReplyPacket.KIND_DONE, lines);
+    }
+
+    private static List<String> concat(List<String> a, List<String> b) {
+        List<String> out = new ArrayList<>(a);
+        out.addAll(b);
+        return out;
+    }
+
+    private static String shorten(String text) {
+        return text.length() > 40 ? text.substring(0, 40).trim() + "..." : text;
+    }
+
+    private static String pickFrom(List<String> preferred, List<String> general, RandomSource random) {
+        return ArrodesVoice.pick(preferred.isEmpty() ? general : preferred, random);
+    }
+
+    /** Reads an owner's reply to Arrodes' question and answers it, sometimes with something extra. */
+    private static Talk ownerTalk(ServerPlayer player, ArrodesVoice.OwnerAsk ask, String text, long now) {
+        RandomSource random = player.serverLevel().random;
+        UUID id = player.getUUID();
+
+        if (ask.effect() == ArrodesVoice.OwnerEffect.PRAISE) {
+            ArrodesText.Reply praise = ArrodesText.classifyPraise(text);
+            if (praise == ArrodesText.Reply.KEEP) {
+                REMARK_BOOST.put(id, now + 36000L);
+                REMARK_MUTE.remove(id);
+                return new Talk(pickFrom(ask.yes(), ArrodesVoice.OWNER_YES, random), List.of());
+            }
+            if (praise == ArrodesText.Reply.ENOUGH) {
+                REMARK_MUTE.put(id, now + 12000L);
+                REMARK_BOOST.remove(id);
+                return new Talk(pickFrom(ask.no(), ArrodesVoice.OWNER_NO, random), List.of());
+            }
+            return new Talk(pickFrom(ask.other(), OWNER_OTHER_ANY, random), List.of());
+        }
+
+        ArrodesText.Reply reply = ArrodesText.classify(text);
+        String line = switch (reply) {
+            case YES -> pickFrom(ask.yes(), ArrodesVoice.OWNER_YES, random);
+            case NO -> pickFrom(ask.no(), ArrodesVoice.OWNER_NO, random);
+            default -> pickFrom(ask.other(), OWNER_OTHER_ANY, random);
+        };
+
+        switch (ask.effect()) {
+            case BREAKFAST -> {
+                return new Talk(shorten(text) + "? " + line, List.of());
+            }
+            case GUESS -> {
+                if (reply == ArrodesText.Reply.YES) {
+                    List<String> guess = ArrodesParser.guess(player);
+                    if (guess.isEmpty()) return new Talk(ArrodesVoice.pick(ArrodesVoice.GUESS_MISS, random), List.of());
+                    return new Talk(ArrodesVoice.pick(ArrodesVoice.GUESS_LEAD, random), guess);
+                }
+            }
+            case SECRET -> {
+                if (reply == ArrodesText.Reply.YES) return new Talk(line, ArrodesParser.nearbyLines(player));
+            }
+            default -> {
+            }
+        }
+        return new Talk(line, List.of());
+    }
+
+    /**
+     * What Arrodes adds for an owner after an answer: a real danger nearby is always mentioned, anything else
+     * only now and then, never twice in a row, and not at all while the owner has asked for quiet.
+     */
+    private static String ownerRemark(ServerPlayer player, long now) {
+        UUID id = player.getUUID();
+        String warning = ArrodesParser.warning(player);
+        if (warning != null) {
+            REMARKED.remove(id);
+            return warning;
+        }
+        Long mute = REMARK_MUTE.get(id);
+        if (mute != null && mute > now) return null;
+        if (REMARKED.remove(id)) return null;
+
+        double chance = LotmmiConfig.ARRODES_OWNER_REMARK_CHANCE.get();
+        Long boost = REMARK_BOOST.get(id);
+        if (boost != null && boost > now) chance = Math.min(1.0D, chance + 0.3D);
+        RandomSource random = player.serverLevel().random;
+        if (random.nextDouble() >= chance) return null;
+
+        String remark = ArrodesVoice.pick(ArrodesVoice.OWNER_REMARKS, random);
+        if (remark.equals(LAST_REMARK.get(id))) remark = ArrodesVoice.pick(ArrodesVoice.OWNER_REMARKS, random);
+        LAST_REMARK.put(id, remark);
+        REMARKED.add(id);
+        return remark;
     }
 
     private static String lockedLine(boolean owner) {
@@ -224,7 +364,10 @@ public final class ArrodesHandler {
                 + seconds + " seconds.";
     }
 
-    private static boolean settle(ServerPlayer player, long now) {
+    /** Counts one settled question. Returns the line that says Arrodes must rest or has left, or null if it stays. */
+    private static String settle(ServerPlayer player, long now, boolean owner) {
+        if (ArrodesMirror.hasSession(player)) return ArrodesMirror.settle(player, owner);
+
         UUID id = player.getUUID();
         int ticks = LotmmiConfig.ARRODES_COOLDOWN_SECONDS.get() * 20;
         Long resetAt = RESET_AT.get(id);
@@ -234,23 +377,27 @@ public final class ArrodesHandler {
             RESET_AT.remove(id);
             COOLDOWN.put(id, now + ticks);
             if (ticks > 0) player.getCooldowns().addCooldown(ModItems.ARRODES.get(), ticks);
-            return true;
+            return lockedLine(owner);
         }
         USED.put(id, used);
         RESET_AT.put(id, now + ticks);
-        return false;
+        return null;
     }
 
     private static void strike(ServerPlayer player, Pending pending, long now) {
-        boolean locked = settle(player, now);
+        boolean mirror = ArrodesMirror.hasSession(player);
+        String lockedText = settle(player, now, pending.owner);
         ServerLevel level = player.serverLevel();
 
         String line = ArrodesVoice.pick(pending.owner ? ArrodesVoice.OWNER_SILENCE : ArrodesVoice.SILENCE, level.random);
         broadcast(player, arrodes(line));
         List<String> lines = new ArrayList<>();
         lines.add(line);
-        if (locked) lines.add(lockedLine(pending.owner));
-        reply(player, locked ? ArrodesReplyPacket.KIND_LOCKED : ArrodesReplyPacket.KIND_DONE, lines);
+        if (lockedText != null) {
+            lines.add(lockedText);
+            if (mirror) broadcast(player, arrodes(lockedText));
+        }
+        reply(player, lockedText != null ? ArrodesReplyPacket.KIND_LOCKED : ArrodesReplyPacket.KIND_DONE, lines);
 
         lightning(player, pending.owner);
     }
@@ -304,7 +451,7 @@ public final class ArrodesHandler {
         if (damage > 0.0F) player.hurt(player.damageSources().lightningBolt(), damage);
     }
 
-    private static void broadcast(ServerPlayer source, Component message) {
+    static void broadcast(ServerPlayer source, Component message) {
         MinecraftServer server = source.getServer();
         if (server == null) return;
         int radius = LotmmiConfig.ARRODES_BROADCAST_RADIUS.get();
@@ -317,7 +464,7 @@ public final class ArrodesHandler {
         }
     }
 
-    private static Component arrodes(String text) {
+    static Component arrodes(String text) {
         return Component.literal("[Arrodes] ").withStyle(ChatFormatting.GRAY, ChatFormatting.BOLD)
                 .append(Component.literal(text).withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
     }
@@ -336,6 +483,8 @@ public final class ArrodesHandler {
         MinecraftServer server = event.getServer();
         long now = server.getTickCount();
         if (now % 5L != 0L) return;
+
+        ArrodesMirror.tick(server, now);
 
         Iterator<Map.Entry<UUID, Pending>> it = PENDING.entrySet().iterator();
         while (it.hasNext()) {
@@ -389,7 +538,9 @@ public final class ArrodesHandler {
 
     @SubscribeEvent
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
-        ArrodesParser.forget(event.getEntity().getUUID());
+        UUID id = event.getEntity().getUUID();
+        ArrodesParser.forget(id);
+        ArrodesMirror.forget(id);
     }
 
     @SubscribeEvent
@@ -397,6 +548,7 @@ public final class ArrodesHandler {
         if (event.getEntity() instanceof ServerPlayer player) {
             PENDING.remove(player.getUUID());
             ArrodesParser.forget(player.getUUID());
+            ArrodesMirror.forget(player.getUUID());
         }
     }
 }

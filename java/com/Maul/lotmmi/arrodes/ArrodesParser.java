@@ -22,6 +22,7 @@ import de.jakob.lotm.network.packets.toServer.RequestUniquenessApotheosisPacket;
 import de.jakob.lotm.util.BeyonderData;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.util.RandomSource;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -35,7 +36,9 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -77,11 +80,26 @@ public final class ArrodesParser {
 
     private static final Map<UUID, Context> CONTEXT = new ConcurrentHashMap<>();
 
+    private record Last(Intent intent, String pathway, int sequence, Item ingredient) {
+    }
+
+    private static final Map<UUID, Last> LAST = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> WARNED = new ConcurrentHashMap<>();
+    private static final long WARNING_TICKS = 12000L;
+
+    private static final String[] ILL_WORDS = {"kill", "kills", "killing", "murder", "assassinate", "assassination", "curse",
+            "eliminate", "hunt", "hunting", "ambush", "rob", "robbing", "slay", "stab", "poison", "torture", "enslave", "backstab", "harass"};
+    private static final String[] PLAYER_WORDS = {"player", "players", "someone", "somebody", "person", "people", "victim", "victims",
+            "rival", "rivals", "pvp", "pk", "griefer"};
+    private static final java.util.Set<String> ILL_SET = new HashSet<>(Arrays.asList(ILL_WORDS));
+    private static final int ILL_WINDOW = 5;
+
     private ArrodesParser() {
     }
 
     public static void forget(UUID id) {
         CONTEXT.remove(id);
+        LAST.remove(id);
     }
 
     public static Result parse(ServerPlayer player, String text, boolean owner) {
@@ -129,7 +147,7 @@ public final class ArrodesParser {
         }
         boolean explicitPathway = pathway != null || !ambiguous.isEmpty();
 
-        boolean recipeW = ArrodesText.hasAny(tokens, normalized, "recipe", "recipes", "formula", "brew", "ingredients", "ingredient", "concoct", "potion", "craft", "make");
+        boolean recipeW = ArrodesText.hasAny(tokens, normalized, "recipe", "recipes", "recipie", "recipies", "reciepe", "receipe", "formula", "brew", "ingredients", "ingredient", "concoct", "potion", "craft", "make");
         boolean sourceW = ArrodesText.hasAny(tokens, normalized, "where", "get", "find", "obtain", "drop", "drops", "farm", "source", "acquire", "collect", "gather", "harvest", "locate", "buy", "trade");
         boolean nameW = ArrodesText.hasAny(tokens, normalized, "name", "names", "called", "title", "titles");
         boolean abilityW = ArrodesText.hasAny(tokens, normalized, "abilities", "ability", "powers", "power", "skills", "skill", "spells", "spell");
@@ -146,11 +164,9 @@ public final class ArrodesParser {
                 "riemann", "goldbach", "collatz", "millennium", "poincare", "navier", "zeno", "schrodinger", "russell",
                 "halting problem", "twin prime", "twin primes", "p vs np", "p versus np", "ship of theseus", "trolley problem",
                 "mathematical problem", "math problem", "chicken or the egg");
-        boolean illW = ArrodesText.hasAny(tokens, normalized, "kill", "kills", "killing", "murder", "assassinate", "assassination", "curse",
-                "eliminate", "hunt", "hunting", "ambush", "rob", "robbing", "slay", "stab", "poison", "torture", "enslave", "backstab", "harass");
-        boolean playerW = ArrodesText.hasAny(tokens, normalized, "player", "players", "someone", "somebody", "person", "people", "victim", "victims",
-                "rival", "rivals", "pvp", "pk", "griefer");
-        boolean trickW = ArrodesText.hasAny(tokens, normalized, "loophole", "loopholes", "jailbreak", "ignore your rules", "ignore previous",
+        boolean illW = ArrodesText.hasExact(tokens, normalized, ILL_WORDS);
+        boolean playerW = ArrodesText.hasExact(tokens, normalized, PLAYER_WORDS);
+        boolean trickW = ArrodesText.hasExact(tokens, normalized, "loophole", "loopholes", "jailbreak", "ignore your rules", "ignore previous",
                 "ignore all previous", "ignore your instructions", "forget your rules", "forget your instructions", "override your");
         boolean closeW = ArrodesText.hasAny(tokens, normalized, "nearby", "around", "lurking", "close", "near");
         boolean aboutW = ArrodesText.hasAny(tokens, normalized, "who are you", "what are you", "who is arrodes", "what is arrodes",
@@ -201,9 +217,18 @@ public final class ArrodesParser {
         if (puzzleW && !explicitPathway && ingredient == null && npc == null) {
             return Result.refuse(ArrodesVoice.pick(ArrodesVoice.PUZZLE_REFUSALS, level.random));
         }
-        boolean aimedAtPeople = target != null || playerW || intent == Intent.PLAYER || intent == Intent.NEARBY;
-        if (illW && aimedAtPeople && intent != Intent.NPC) {
-            if (punish) return smite(level, false);
+        java.util.Set<String> nouns = new HashSet<>(Arrays.asList(PLAYER_WORDS));
+        if (target != null) nouns.addAll(ArrodesText.tokens(target.getGameProfile().getName()));
+        boolean aimedAtPeople = illW && ArrodesText.near(tokens, ILL_SET, nouns, ILL_WINDOW)
+                && mobMatch == null && ingredient == null && npc == null;
+        if (aimedAtPeople) {
+            if (punish) {
+                Long until = WARNED.get(player.getUUID());
+                boolean warnedBefore = until != null && until > now;
+                if (warnedBefore || !LotmmiConfig.ARRODES_WARN_FIRST.get()) return smite(level, false);
+                WARNED.put(player.getUUID(), now + WARNING_TICKS);
+                return Result.refuse(ArrodesVoice.WARN_ILL);
+            }
             return Result.refuse("I smell ill intent, " + address + ". I will not help you hunt.");
         }
         if (godW && !apotheosisAsk && !explicitPathway && ingredient == null
@@ -235,7 +260,7 @@ public final class ArrodesParser {
         if (intent == null) {
             CONTEXT.remove(player.getUUID());
             List<String> menu = new ArrayList<>();
-            menu.add("I do not understand the question, " + address + ".");
+            menu.add(ArrodesVoice.pick(owner ? ArrodesVoice.OWNER_FALLBACKS : ArrodesVoice.FALLBACKS, level.random));
             menu.add("Ask me about a pathway or sequence, a recipe, what an ingredient serves, where an ingredient or a creature is found, a structure, Beyonders nearby, a named Beyonder, a Uniqueness, another player, or where you last died."
                     + (owner ? " Or ask of the lore of this world, how to become a God, or the dangers around you." : ""));
             return new Result(Kind.UNKNOWN, menu);
@@ -246,7 +271,7 @@ public final class ArrodesParser {
             case RECIPE -> recipe(player, pathway, sequence, now, owner);
             case ABILITIES -> abilities(player, pathway, sequence, now);
             case SOURCE -> source(level, ingredient, owner);
-            case USES -> uses(ingredient, owner);
+            case USES -> uses(level, ingredient, owner);
             case STRUCTURE -> structure(player, structurePrefix);
             case NEARBY -> nearby(player, level);
             case UNIQUENESS -> uniqueness(server, explicitPathway ? pathway : null);
@@ -254,12 +279,20 @@ public final class ArrodesParser {
             case PLAYER -> findPlayer(server, target, whereW || sourceW, infoW || !(whereW || sourceW), owner);
             case MOB -> mob(level, mobMatch, owner);
             case APPRAISE -> appraise(player, owner);
-            case DANGER -> owner ? danger(player, level) : Result.refuse(ArrodesVoice.DANGER_DENIED);
+            case DANGER -> owner ? danger(player, level) : Result.refuse(ArrodesVoice.pick(ArrodesVoice.DANGER_DENIED, level.random));
             case ABOUT -> about(owner, tokens, normalized);
-            case NPC -> npc(npc, owner);
-            case LORE -> owner ? lore(level, loreTopic, pathway == null ? sequence : -1) : Result.refuse(ArrodesVoice.LORE_DENIED);
+            case NPC -> npc(npc, owner, level.random);
+            case LORE -> lore(level, loreTopic, pathway == null ? sequence : -1, address);
         };
         if (result.kind() != Kind.CLARIFY) CONTEXT.remove(player.getUUID());
+        if (result.kind() == Kind.ANSWER) {
+            switch (intent) {
+                case SOURCE, USES -> LAST.put(player.getUUID(), new Last(intent, null, -1, ingredient));
+                case RECIPE, ABILITIES, SEQ_NAME -> LAST.put(player.getUUID(), new Last(intent, pathway, sequence, null));
+                default -> {
+                }
+            }
+        }
         return result;
     }
 
@@ -303,7 +336,7 @@ public final class ArrodesParser {
         if (pathway == null) return clarify(player, Intent.RECIPE, null, sequence, now, "The formula of which pathway?");
         if (sequence < 0) return clarify(player, Intent.RECIPE, pathway, -1, now, "Which sequence of the " + ArrodesKnowledge.pathwayName(pathway) + " pathway?");
         if (ArrodesKnowledge.formulaHidden(sequence)) {
-            return Result.refuse(owner ? ArrodesVoice.OWNER_FORMULA_PROTECTED : ArrodesVoice.FORMULA_PROTECTED);
+            return Result.refuse(ArrodesVoice.pick(owner ? ArrodesVoice.OWNER_FORMULA_PROTECTED : ArrodesVoice.FORMULA_PROTECTED, player.serverLevel().random));
         }
         PotionRecipe recipe = ArrodesKnowledge.recipeFor(pathway, sequence);
         if (recipe == null) return Result.answer("The formula for " + ArrodesKnowledge.describeSequence(pathway, sequence) + " is not known to me.");
@@ -313,7 +346,7 @@ public final class ArrodesParser {
         if (owner && recipe.mainIngredient() != null && !recipe.mainIngredient().isEmpty()) {
             String where = ArrodesKnowledge.firstSource(recipe.mainIngredient().getItem());
             if (where != null) {
-                lines.add("A gift for my Master: " + ArrodesKnowledge.itemName(recipe.mainIngredient().getItem()) + " - " + where);
+                lines.add(ArrodesKnowledge.itemName(recipe.mainIngredient().getItem()) + " - " + where);
             }
         }
         return Result.answer(lines);
@@ -345,7 +378,6 @@ public final class ArrodesParser {
         } else {
             lines.add(name + ":");
             if (hint != null) lines.add(hint);
-            if (hint != null && !rules.isEmpty()) lines.add("The exact rules, for my Master:");
             lines.addAll(rules);
             int shown = 0;
             for (EntityType<?> type : ArrodesKnowledge.mobsFor(ingredient)) {
@@ -360,15 +392,17 @@ public final class ArrodesParser {
                 shown++;
             }
         }
-        lines.addAll(servesLines(ingredient, 3, owner));
+        if (owner) lines.addAll(servesLines(level, ingredient, 3, true, false));
         return Result.answer(lines);
     }
 
-    private static List<String> servesLines(Item ingredient, int limit, boolean owner) {
+    private static List<String> servesLines(ServerLevel level, Item ingredient, int limit, boolean owner, boolean includeProtected) {
         List<String> lines = new ArrayList<>();
         if (ingredient instanceof PotionIngredient potionIngredient) {
             if (ArrodesKnowledge.formulaHidden(potionIngredient.getSequence())) {
-                lines.add(owner ? ArrodesVoice.OWNER_SERVES_PROTECTED : ArrodesVoice.SERVES_PROTECTED);
+                if (includeProtected) {
+                    lines.add(ArrodesVoice.pick(owner ? ArrodesVoice.OWNER_SERVES_PROTECTED : ArrodesVoice.SERVES_PROTECTED, level.random));
+                }
             } else {
                 List<String> pathways = new ArrayList<>();
                 for (String id : potionIngredient.getPathways()) pathways.add(ArrodesKnowledge.pathwayName(id));
@@ -381,11 +415,11 @@ public final class ArrodesParser {
         return lines;
     }
 
-    private static Result uses(Item ingredient, boolean owner) {
+    private static Result uses(ServerLevel level, Item ingredient, boolean owner) {
         String name = ArrodesKnowledge.itemName(ingredient);
-        List<String> lines = new ArrayList<>(servesLines(ingredient, Integer.MAX_VALUE, owner));
+        List<String> lines = new ArrayList<>(servesLines(level, ingredient, Integer.MAX_VALUE, owner, true));
         if (lines.isEmpty()) return Result.answer("I know of no formula that uses " + name + ".");
-        if (lines.size() == 1 && (lines.get(0).equals(ArrodesVoice.SERVES_PROTECTED) || lines.get(0).equals(ArrodesVoice.OWNER_SERVES_PROTECTED))) {
+        if (lines.size() == 1 && ArrodesVoice.isServesProtected(lines.get(0))) {
             return Result.refuse(lines.get(0));
         }
         lines.add(0, name + ":");
@@ -396,8 +430,8 @@ public final class ArrodesParser {
         return Result.smite(ArrodesVoice.pick(trick ? ArrodesVoice.SMITE_TRICK : ArrodesVoice.SMITE_ILL, level.random));
     }
 
-    private static Result npc(ArrodesNpcs.Npc npc, boolean owner) {
-        if (ArrodesNpcs.isProtected(npc)) return Result.refuse(owner ? ArrodesVoice.OWNER_BEING_PROTECTED : ArrodesVoice.BEING_PROTECTED);
+    private static Result npc(ArrodesNpcs.Npc npc, boolean owner, RandomSource random) {
+        if (ArrodesNpcs.isProtected(npc)) return Result.refuse(ArrodesVoice.pick(owner ? ArrodesVoice.OWNER_BEING_PROTECTED : ArrodesVoice.BEING_PROTECTED, random));
         if (!ArrodesNpcs.exists(npc)) {
             return Result.refuse("I have heard the name " + npc.name() + ", but I see no sign of them in this world.");
         }
@@ -412,15 +446,11 @@ public final class ArrodesParser {
         }
     }
 
-    private static Result lore(ServerLevel level, ArrodesLore.Topic topic, int sequence) {
+    private static Result lore(ServerLevel level, ArrodesLore.Topic topic, int sequence, String address) {
         if (topic == ArrodesLore.Topic.APOTHEOSIS) {
-            return Result.answer(ArrodesLore.apotheosis(apotheosisStacks(level), RequestUniquenessApotheosisPacket.KILLS_REQUIRED_FOR_APOTHEOSIS));
+            return Result.answer(ArrodesLore.apotheosis(apotheosisStacks(level), RequestUniquenessApotheosisPacket.KILLS_REQUIRED_FOR_APOTHEOSIS, address));
         }
-        List<String> pathwayNames = new ArrayList<>();
-        if (topic == ArrodesLore.Topic.PATHWAY) {
-            for (String id : ArrodesKnowledge.pathways().keySet()) pathwayNames.add(ArrodesKnowledge.pathwayName(id));
-        }
-        return Result.answer(ArrodesLore.answer(topic, sequence, pathwayNames));
+        return Result.answer(ArrodesLore.answer(topic, sequence, address));
     }
 
     private static Result structure(ServerPlayer player, String prefix) {
@@ -521,7 +551,7 @@ public final class ArrodesParser {
         boolean beyonder = BeyonderData.isBeyonder(target);
         int sequence = beyonder ? BeyonderData.getSequence(target) : 10;
         if (beyonder && ArrodesKnowledge.beingProtected(sequence)) {
-            return Result.refuse(owner ? ArrodesVoice.OWNER_BEING_PROTECTED : ArrodesVoice.BEING_PROTECTED);
+            return Result.refuse(ArrodesVoice.pick(owner ? ArrodesVoice.OWNER_BEING_PROTECTED : ArrodesVoice.BEING_PROTECTED, server.overworld().random));
         }
         if (SefirotData.get(server).isInSefirot(target)) {
             return Result.answer(name + " is hidden within a Sefirah Castle. The mirror finds nothing.");
@@ -566,7 +596,7 @@ public final class ArrodesParser {
             for (SpawnInfo info : infos) {
                 lines.add("Found in " + info.where() + ": " + ArrodesKnowledge.rarity(info.averagePercent()) + ", about "
                         + info.percentText() + " of every 100 " + info.pool() + " that spawn there, in groups of " + info.groupText() + ".");
-                if (owner) lines.add("A gift for my Master: its spawn weight there is " + info.weight() + ".");
+                if (owner) lines.add("Its spawn weight there is " + info.weight() + ".");
             }
         }
         List<String> drops = ArrodesKnowledge.dropsOf(type);
@@ -600,7 +630,7 @@ public final class ArrodesParser {
         if (item instanceof PotionRecipeItem recipeItem && recipeItem.getRecipe() != null && recipeItem.getRecipe().potion() != null) {
             BeyonderPotion potion = recipeItem.getRecipe().potion();
             if (ArrodesKnowledge.formulaHidden(potion.getSequence())) {
-                return Result.refuse(owner ? ArrodesVoice.OWNER_FORMULA_PROTECTED : ArrodesVoice.FORMULA_PROTECTED);
+                return Result.refuse(ArrodesVoice.pick(owner ? ArrodesVoice.OWNER_FORMULA_PROTECTED : ArrodesVoice.FORMULA_PROTECTED, player.serverLevel().random));
             }
             List<String> lines = new ArrayList<>();
             lines.add("A written formula for " + ArrodesKnowledge.describeSequence(potion.getPathway(), potion.getSequence()) + ":");
@@ -629,11 +659,36 @@ public final class ArrodesParser {
         return Result.answer(lines);
     }
 
-    public static String tip(ServerPlayer player) {
+    /** A real danger near an owner, phrased as a plain remark, or null when nothing threatens them. */
+    public static String warning(ServerPlayer player) {
+        String first = danger(player, player.serverLevel()).lines().get(0);
+        if (first.startsWith("I see no danger")) return null;
+        return "Great Master, " + Character.toLowerCase(first.charAt(0)) + first.substring(1);
+    }
+
+    /** What Arrodes offers for free when an owner says yes to "may I guess what you wish to ask next?". */
+    public static List<String> guess(ServerPlayer player) {
+        Last last = LAST.get(player.getUUID());
+        if (last == null) return List.of();
         ServerLevel level = player.serverLevel();
-        String first = danger(player, level).lines().get(0);
-        if (!first.startsWith("I see no danger")) return "Great Master, a warning: " + first;
-        return ArrodesVoice.pick(ArrodesVoice.OWNER_TIPS, level.random);
+        long now = level.getServer().overworld().getGameTime();
+        Result result = switch (last.intent()) {
+            case SOURCE -> uses(level, last.ingredient(), true);
+            case USES -> source(level, last.ingredient(), true);
+            case RECIPE -> abilities(player, last.pathway(), last.sequence(), now);
+            case ABILITIES, SEQ_NAME -> last.sequence() >= 0 ? recipe(player, last.pathway(), last.sequence(), now, true) : null;
+            default -> null;
+        };
+        if (result == null || result.kind() != Kind.ANSWER) {
+            CONTEXT.remove(player.getUUID());
+            return List.of();
+        }
+        return result.lines();
+    }
+
+    /** The Beyonders near a player, for the owner who wishes to hear a secret about someone nearby. */
+    public static List<String> nearbyLines(ServerPlayer player) {
+        return nearby(player, player.serverLevel()).lines();
     }
 
     private static Result danger(ServerPlayer player, ServerLevel level) {

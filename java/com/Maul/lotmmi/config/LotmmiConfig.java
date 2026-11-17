@@ -155,6 +155,34 @@ public final class LotmmiConfig {
             .comment("Chance that a generated chest contains Arrodes. Extremely small by default. 0 turns it off.")
             .defineInRange("arrodesChestChance", 0.0015D, 0.0D, 1.0D);
 
+    public static final ModConfigSpec.BooleanValue ARRODES_WARN_FIRST = BUILDER
+            .comment("When a non-owner's question smells of ill intent, Arrodes warns them the first time (within about ten minutes) and only punishes the second. Tricks and loopholes are always punished at once.")
+            .define("arrodesWarnFirst", true);
+
+    public static final ModConfigSpec.DoubleValue ARRODES_OWNER_REMARK_CHANCE = BUILDER
+            .comment("Chance that Arrodes adds a free remark after an answer to a Sefirah Castle owner. It never remarks twice in a row. Real danger near the owner is always mentioned.")
+            .defineInRange("arrodesOwnerRemarkChance", 0.3D, 0.0D, 1.0D);
+
+    public static final ModConfigSpec.BooleanValue ARRODES_MIRROR_ENABLED = BUILDER
+            .comment("Lets anyone summon Arrodes through a mirror (glass) by sneaking and right-clicking it with a signed book that holds Arrodes' honorific name.")
+            .define("arrodesMirrorEnabled", true);
+
+    public static final ModConfigSpec.DoubleValue ARRODES_MIRROR_SUMMON_COST = BUILDER
+            .comment("Spirituality a Beyonder pays once to summon Arrodes through a mirror, on top of the normal cost of each answer. Non-Beyonders pay nothing. A summon the player cannot afford does nothing.")
+            .defineInRange("arrodesMirrorSummonCost", 30.0D, 0.0D, 1000000.0D);
+
+    public static final ModConfigSpec.IntValue ARRODES_MIRROR_QUESTIONS_PER_DAY = BUILDER
+            .comment("How many questions Arrodes settles for one player through mirrors before the mirror goes quiet. This is separate from the item's own limit.")
+            .defineInRange("arrodesMirrorQuestionsPerDay", 5, 1, 1000);
+
+    public static final ModConfigSpec.IntValue ARRODES_MIRROR_COOLDOWN_TICKS = BUILDER
+            .comment("Ticks until a player's mirror questions return, counted from their first question (24000 = one Minecraft day, which is 20 real minutes). Sleeping does not shorten it.")
+            .defineInRange("arrodesMirrorCooldownTicks", 24000, 0, 2400000);
+
+    public static final ModConfigSpec.IntValue ARRODES_MIRROR_IDLE_SECONDS = BUILDER
+            .comment("Seconds Arrodes waits at a mirror for a question before it withdraws.")
+            .defineInRange("arrodesMirrorIdleSeconds", 180, 10, 3600);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     private LotmmiConfig() {

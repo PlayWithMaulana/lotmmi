@@ -1,7 +1,9 @@
 package com.Maul.lotmmi.gui;
 
+import com.Maul.lotmmi.arrodes.ArrodesMirror;
 import com.Maul.lotmmi.item.custom.ArrodesItem;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -60,6 +62,7 @@ public class ArrodesMenu extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
+        if (player instanceof ServerPlayer serverPlayer && ArrodesMirror.hasSession(serverPlayer)) return true;
         return player.getMainHandItem().getItem() instanceof ArrodesItem
                 || player.getOffhandItem().getItem() instanceof ArrodesItem;
     }

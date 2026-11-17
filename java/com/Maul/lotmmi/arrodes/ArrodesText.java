@@ -41,20 +41,22 @@ public final class ArrodesText {
     }
 
     public static int distance(String a, String b) {
-        int[] prev = new int[b.length() + 1];
-        int[] cur = new int[b.length() + 1];
-        for (int j = 0; j <= b.length(); j++) prev[j] = j;
-        for (int i = 1; i <= a.length(); i++) {
-            cur[0] = i;
-            for (int j = 1; j <= b.length(); j++) {
+        int n = a.length();
+        int m = b.length();
+        int[][] d = new int[n + 1][m + 1];
+        for (int i = 0; i <= n; i++) d[i][0] = i;
+        for (int j = 0; j <= m; j++) d[0][j] = j;
+        for (int i = 1; i <= n; i++) {
+            for (int j = 1; j <= m; j++) {
                 int cost = a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1;
-                cur[j] = Math.min(Math.min(cur[j - 1] + 1, prev[j] + 1), prev[j - 1] + cost);
+                int best = Math.min(Math.min(d[i][j - 1] + 1, d[i - 1][j] + 1), d[i - 1][j - 1] + cost);
+                if (i > 1 && j > 1 && a.charAt(i - 1) == b.charAt(j - 2) && a.charAt(i - 2) == b.charAt(j - 1)) {
+                    best = Math.min(best, d[i - 2][j - 2] + 1);
+                }
+                d[i][j] = best;
             }
-            int[] swap = prev;
-            prev = cur;
-            cur = swap;
         }
-        return prev[b.length()];
+        return d[n][m];
     }
 
     public static boolean fuzzyEquals(String a, String b) {
@@ -103,11 +105,79 @@ public final class ArrodesText {
                 if ((" " + normalizedText + " ").contains(" " + word + " ")) return true;
             } else {
                 for (String token : tokens) {
-                    if (token.equals(word) || (word.length() >= 7 && fuzzyEquals(token, word))) return true;
+                    if (token.equals(word)) return true;
+                    if (word.length() >= 7 && token.length() >= 6 && fuzzyEquals(token, word) && onlyClose(token, word, words)) return true;
                 }
             }
         }
         return false;
+    }
+
+    private static boolean onlyClose(String token, String word, String[] words) {
+        for (String other : words) {
+            if (other.equals(word) || other.contains(" ")) continue;
+            if (distance(token, other) <= 1) return false;
+        }
+        return true;
+    }
+
+    /** Exact matches only: used for words that can trigger a punishment, where a typo must never be guessed at. */
+    public static boolean hasExact(List<String> tokens, String normalizedText, String... words) {
+        for (String word : words) {
+            if (word.contains(" ")) {
+                if ((" " + normalizedText + " ").contains(" " + word + " ")) return true;
+            } else if (tokens.contains(word)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** True when any of the first words sits within {@code window} tokens of any of the second words. */
+    public static boolean near(List<String> tokens, Set<String> first, Set<String> second, int window) {
+        for (int i = 0; i < tokens.size(); i++) {
+            if (!first.contains(tokens.get(i))) continue;
+            int from = Math.max(0, i - window);
+            int to = Math.min(tokens.size() - 1, i + window);
+            for (int j = from; j <= to; j++) {
+                if (j != i && second.contains(tokens.get(j))) return true;
+            }
+        }
+        return false;
+    }
+
+    public enum Reply { YES, NO, OTHER, KEEP, ENOUGH }
+
+    private static final Set<String> YES_WORDS = Set.of("yes", "yeah", "yep", "yup", "sure", "indeed", "please", "ok", "okay", "definitely",
+            "absolutely", "certainly", "satisfied", "pleased", "happy", "good", "great", "fine", "excellent", "wonderful", "perfect",
+            "correct", "right", "gladly", "aye", "affirmative");
+
+    private static final Set<String> NO_WORDS = Set.of("no", "nope", "nah", "never", "not", "dont", "don", "enough", "stop", "wrong",
+            "bad", "displeased", "unhappy", "poor", "terrible", "negative");
+
+    private static final Set<String> KEEP_WORDS = Set.of("keep", "continue", "more", "praise", "again", "yes", "yeah", "sure", "please");
+
+    private static final Set<String> ENOUGH_WORDS = Set.of("enough", "stop", "quiet", "silence", "silent", "hush", "no", "nope", "nah");
+
+    /** Sorts an owner's reply to one of Arrodes' questions into yes, no or something else. */
+    public static Reply classify(String text) {
+        List<String> tokens = tokens(text);
+        for (String token : tokens) if (NO_WORDS.contains(token)) return Reply.NO;
+        for (String token : tokens) if (YES_WORDS.contains(token)) return Reply.YES;
+        return Reply.OTHER;
+    }
+
+    /** Sorts an owner's reply to "shall I keep praising you, or is that enough?". */
+    public static Reply classifyPraise(String text) {
+        List<String> tokens = tokens(text);
+        for (String token : tokens) if (ENOUGH_WORDS.contains(token)) return Reply.ENOUGH;
+        for (String token : tokens) if (KEEP_WORDS.contains(token)) return Reply.KEEP;
+        return Reply.OTHER;
+    }
+
+    /** Normalises a book's text for comparison with an honorific name. */
+    public static String squash(String text) {
+        return normalize(text);
     }
 
     public static String pretty(String id) {

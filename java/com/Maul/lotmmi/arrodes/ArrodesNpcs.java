@@ -127,9 +127,9 @@ final class ArrodesNpcs {
             if (npc.sequence() >= 0) {
                 int pounds = npc.king() ? KING_POUNDS : POUNDS[npc.sequence()];
                 int soli = npc.king() ? KING_SOLI : SOLI[npc.sequence()];
-                lines.add("A gift for my Master: slain, " + npc.name() + " drops " + pounds + " pounds and " + soli + " soli.");
+                lines.add("Slain, " + npc.name() + " drops " + pounds + " pounds and " + soli + " soli.");
             } else {
-                lines.add("A gift for my Master: what an avatar drops in pounds and soli grows with the Sequence it was born to.");
+                lines.add("What an avatar drops in pounds and soli grows with the Sequence it was born to.");
             }
         }
         return lines;

@@ -126,6 +126,13 @@ public final class ArrodesKnowledge {
 
     private static List<MobEntry> mobCache;
 
+    /** Creatures and structures from other mods share words with ours ("dragon"), so only our own mods are searched. */
+    private static final Set<String> LOTM_NAMESPACES = Set.of("lotmcraft", "lotmextra", "lotmmi");
+
+    static boolean isLotmNamespace(String namespace) {
+        return LOTM_NAMESPACES.contains(namespace);
+    }
+
     private ArrodesKnowledge() {
     }
 
@@ -297,7 +304,8 @@ public final class ArrodesKnowledge {
                 }
             }
             double score = (double) matched / entry.tokens().size();
-            if (score >= 0.8D && (score > bestScore || (score == bestScore && entry.tokens().size() > bestSize))) {
+            boolean oneWordShort = matched >= 3 && entry.tokens().size() - matched == 1;
+            if ((score >= 0.8D || oneWordShort) && (score > bestScore || (score == bestScore && entry.tokens().size() > bestSize))) {
                 best = entry.item();
                 bestScore = score;
                 bestSize = entry.tokens().size();
@@ -491,7 +499,7 @@ public final class ArrodesKnowledge {
         List<MobEntry> out = new ArrayList<>();
         for (EntityType<?> type : BuiltInRegistries.ENTITY_TYPE) {
             ResourceLocation key = BuiltInRegistries.ENTITY_TYPE.getKey(type);
-            if (key.getNamespace().equals("minecraft") || type.getCategory() == MobCategory.MISC) continue;
+            if (!isLotmNamespace(key.getNamespace()) || type.getCategory() == MobCategory.MISC) continue;
             List<String> tokens = new ArrayList<>();
             for (String token : ArrodesText.tokens(key.getPath().replace('_', ' '))) {
                 if (!ArrodesText.isStop(token)) tokens.add(token);
@@ -750,7 +758,7 @@ public final class ArrodesKnowledge {
         Registry<Structure> registry = level.registryAccess().registryOrThrow(Registries.STRUCTURE);
         Map<String, String> aliases = new LinkedHashMap<>(VANILLA_STRUCTURES);
         for (ResourceKey<Structure> key : registry.registryKeySet()) {
-            if (key.location().getNamespace().equals("minecraft")) continue;
+            if (key.location().getNamespace().equals("minecraft") || !isLotmNamespace(key.location().getNamespace())) continue;
             String path = key.location().getPath();
             aliases.put(path.replace('_', ' '), path);
         }
@@ -772,6 +780,8 @@ public final class ArrodesKnowledge {
         Registry<Structure> registry = level.registryAccess().registryOrThrow(Registries.STRUCTURE);
         List<Holder<Structure>> holders = new ArrayList<>();
         for (ResourceKey<Structure> key : registry.registryKeySet()) {
+            String namespace = key.location().getNamespace();
+            if (!namespace.equals("minecraft") && !isLotmNamespace(namespace)) continue;
             if (key.location().getPath().startsWith(prefix)) holders.add(registry.getHolderOrThrow(key));
         }
         if (holders.isEmpty()) return null;

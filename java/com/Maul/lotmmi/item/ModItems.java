@@ -2,6 +2,7 @@ package com.Maul.lotmmi.item;
 
 import com.Maul.lotmmi.LotmMysticalItems;
 import com.Maul.lotmmi.entity.ModEntities;
+import com.Maul.lotmmi.item.custom.ArrodesItem;
 import com.Maul.lotmmi.item.custom.AwakenedCreepingHungerItem;
 import com.Maul.lotmmi.item.custom.CreepingHungerItem;
 import com.Maul.lotmmi.item.custom.SeaGodCharmItem;
@@ -28,6 +29,9 @@ public class ModItems {
 
     public static final DeferredItem<SeaGodScepterItem> SEA_GOD_SCEPTER =
             ITEMS.register("sea_god_scepter", () -> new SeaGodScepterItem(new Item.Properties().stacksTo(1).fireResistant().rarity(net.minecraft.world.item.Rarity.EPIC)));
+
+    public static final DeferredItem<ArrodesItem> ARRODES =
+            ITEMS.register("arrodes", () -> new ArrodesItem(new Item.Properties().stacksTo(1).fireResistant().rarity(net.minecraft.world.item.Rarity.EPIC)));
 
     public static final DeferredItem<SeaGodCharmItem> SEA_GOD_CHARM =
             ITEMS.register("sea_god_charm", () -> new SeaGodCharmItem(new Item.Properties().stacksTo(16)));

@@ -119,13 +119,22 @@ public final class ArrodesParser {
             context = null;
         }
 
-        PathwayMatch pathwayMatch = ArrodesKnowledge.findPathway(tokens);
+        // The words of an ingredient's name belong to the ingredient: "Blood of a Thousand Faced Hunter" is not a
+        // question about the Hunter pathway, so those words are blanked before pathways and Sequence names are read.
+        ArrodesKnowledge.IngredientHit ingredientHit = ArrodesKnowledge.findIngredientHit(tokens);
+        List<String> nameTokens = tokens;
+        if (ingredientHit != null) {
+            nameTokens = new ArrayList<>(tokens);
+            for (int position : ingredientHit.positions()) nameTokens.set(position, "_");
+        }
+
+        PathwayMatch pathwayMatch = ArrodesKnowledge.findPathway(nameTokens);
         int sequence = ArrodesText.findSequence(tokens);
         String pathway = pathwayMatch == null ? null : pathwayMatch.id();
 
         List<SequenceMatch> ambiguous = List.of();
         if (pathwayMatch == null) {
-            List<SequenceMatch> named = ArrodesKnowledge.findAllSequencesByName(tokens);
+            List<SequenceMatch> named = ArrodesKnowledge.findAllSequencesByName(nameTokens);
             if (sequence >= 0 && named.size() > 1) {
                 final int wanted = sequence;
                 List<SequenceMatch> narrowed = new ArrayList<>();
@@ -140,7 +149,7 @@ public final class ArrodesParser {
                 ambiguous = named;
             }
         } else if (sequence < 0) {
-            List<String> masked = new ArrayList<>(tokens);
+            List<String> masked = new ArrayList<>(nameTokens);
             for (int i = pathwayMatch.start(); i < pathwayMatch.end(); i++) masked.set(i, "_");
             SequenceMatch byName = ArrodesKnowledge.findSequenceByName(masked, pathway);
             if (byName != null) sequence = byName.sequence();
@@ -184,7 +193,7 @@ public final class ArrodesParser {
 
         String structurePrefix = ArrodesKnowledge.structurePrefixFor(normalized, level);
         ServerPlayer target = findTarget(server, player, normalized);
-        Item ingredient = ArrodesKnowledge.findIngredient(tokens);
+        Item ingredient = ingredientHit == null ? null : ingredientHit.item();
         ArrodesNpcs.Npc npc = target == null ? ArrodesNpcs.find(tokens) : null;
         ArrodesLore.Topic loreTopic = ArrodesLore.find(tokens, normalized);
         MobMatch mobMatch = ingredient == null && !explicitPathway && npc == null ? ArrodesKnowledge.findMobs(level, tokens) : null;
@@ -659,11 +668,16 @@ public final class ArrodesParser {
         return Result.answer(lines);
     }
 
-    /** A real danger near an owner, phrased as a plain remark, or null when nothing threatens them. */
-    public static String warning(ServerPlayer player) {
-        String first = danger(player, player.serverLevel()).lines().get(0);
-        if (first.startsWith("I see no danger")) return null;
-        return "Great Master, " + Character.toLowerCase(first.charAt(0)) + first.substring(1);
+    /** A kind of danger ("hostile", "stronger" or "storm") with the way Arrodes states it. */
+    public record Warning(String kind, String text) {
+    }
+
+    /** The most pressing real danger near an owner, phrased as a plain remark, or null when nothing threatens them. */
+    public static Warning warning(ServerPlayer player) {
+        List<Warning> found = dangers(player, player.serverLevel());
+        if (found.isEmpty()) return null;
+        Warning first = found.get(0);
+        return new Warning(first.kind(), "Great Master, " + Character.toLowerCase(first.text().charAt(0)) + first.text().substring(1));
     }
 
     /** What Arrodes offers for free when an owner says yes to "may I guess what you wish to ask next?". */
@@ -691,11 +705,13 @@ public final class ArrodesParser {
         return nearby(player, player.serverLevel()).lines();
     }
 
-    private static Result danger(ServerPlayer player, ServerLevel level) {
-        List<String> lines = new ArrayList<>();
+    private static List<Warning> dangers(ServerPlayer player, ServerLevel level) {
+        List<Warning> found = new ArrayList<>();
         List<Mob> hunters = level.getEntitiesOfClass(Mob.class, player.getBoundingBox().inflate(48.0D),
                 m -> m.isAlive() && (m.getTarget() == player || (m instanceof Monster && m.distanceToSqr(player) < 24.0D * 24.0D)));
-        if (!hunters.isEmpty()) lines.add(hunters.size() + " hostile creature" + (hunters.size() == 1 ? "" : "s") + " lurk within reach of you.");
+        if (!hunters.isEmpty()) {
+            found.add(new Warning("hostile", hunters.size() + " hostile creature" + (hunters.size() == 1 ? "" : "s") + " lurk within reach of you."));
+        }
 
         int own = BeyonderData.isBeyonder(player) ? BeyonderData.getSequence(player) : 10;
         List<LivingEntity> stronger = level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(128.0D),
@@ -704,10 +720,17 @@ public final class ArrodesParser {
         stronger.sort(Comparator.comparingDouble(e -> e.distanceToSqr(player)));
         if (!stronger.isEmpty()) {
             LivingEntity nearest = stronger.get(0);
-            lines.add("A Beyonder stronger than you stands " + Math.round(Math.sqrt(nearest.distanceToSqr(player))) + " blocks to the "
-                    + ArrodesText.direction(nearest.getX() - player.getX(), nearest.getZ() - player.getZ()) + ".");
+            found.add(new Warning("stronger", "A Beyonder stronger than you stands " + Math.round(Math.sqrt(nearest.distanceToSqr(player))) + " blocks to the "
+                    + ArrodesText.direction(nearest.getX() - player.getX(), nearest.getZ() - player.getZ()) + "."));
         }
-        if (level.isThundering()) lines.add("A storm gathers over you, and lightning is not particular.");
+        if (level.isThundering()) found.add(new Warning("storm", "A storm gathers over you, and lightning is not particular."));
+        return found;
+    }
+
+    /** What an owner hears when they ask about danger: everything, every time they ask. */
+    private static Result danger(ServerPlayer player, ServerLevel level) {
+        List<String> lines = new ArrayList<>();
+        for (Warning found : dangers(player, level)) lines.add(found.text());
         if (lines.isEmpty()) lines.add("I see no danger near you. Do not grow careless.");
         return Result.answer(lines);
     }

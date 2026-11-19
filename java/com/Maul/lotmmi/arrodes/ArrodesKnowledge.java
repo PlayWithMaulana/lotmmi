@@ -289,8 +289,12 @@ public final class ArrodesKnowledge {
         return out;
     }
 
-    public static Item findIngredient(List<String> tokens) {
-        Item best = null;
+    /** An ingredient named in a question, and which words of the question are its name. */
+    public record IngredientHit(Item item, List<Integer> positions) {
+    }
+
+    public static IngredientHit findIngredientHit(List<String> tokens) {
+        IngredientEntry best = null;
         double bestScore = 0.0D;
         int bestSize = 0;
         for (IngredientEntry entry : ingredients()) {
@@ -306,12 +310,26 @@ public final class ArrodesKnowledge {
             double score = (double) matched / entry.tokens().size();
             boolean oneWordShort = matched >= 3 && entry.tokens().size() - matched == 1;
             if ((score >= 0.8D || oneWordShort) && (score > bestScore || (score == bestScore && entry.tokens().size() > bestSize))) {
-                best = entry.item();
+                best = entry;
                 bestScore = score;
                 bestSize = entry.tokens().size();
             }
         }
-        return best;
+        if (best == null) return null;
+        List<List<Integer>> candidates = new ArrayList<>();
+        for (String part : best.tokens()) {
+            List<Integer> at = new ArrayList<>();
+            for (int i = 0; i < tokens.size(); i++) {
+                if (ArrodesText.fuzzyEquals(tokens.get(i), part)) at.add(i);
+            }
+            candidates.add(at);
+        }
+        return new IngredientHit(best.item(), ArrodesSpan.tightest(candidates));
+    }
+
+    public static Item findIngredient(List<String> tokens) {
+        IngredientHit hit = findIngredientHit(tokens);
+        return hit == null ? null : hit.item();
     }
 
     public static String itemName(Item item) {

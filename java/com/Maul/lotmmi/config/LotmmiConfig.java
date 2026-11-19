@@ -160,11 +160,15 @@ public final class LotmmiConfig {
             .define("arrodesWarnFirst", true);
 
     public static final ModConfigSpec.DoubleValue ARRODES_OWNER_REMARK_CHANCE = BUILDER
-            .comment("Chance that Arrodes adds a free remark after an answer to a Sefirah Castle owner. It never remarks twice in a row. Real danger near the owner is always mentioned.")
+            .comment("Chance that Arrodes adds a free remark after an answer to a Sefirah Castle owner. It never remarks twice in a row.")
             .defineInRange("arrodesOwnerRemarkChance", 0.3D, 0.0D, 1.0D);
 
+    public static final ModConfigSpec.IntValue ARRODES_WARNING_COOLDOWN_SECONDS = BUILDER
+            .comment("After Arrodes warns a Sefirah Castle owner of a real danger nearby (hostile creatures, a stronger Beyonder, a storm), the same kind of danger is not mentioned again for this many seconds. A different kind of danger may speak after a third of it. Asking Arrodes about danger directly always gets a full answer. 0 warns after every answer.")
+            .defineInRange("arrodesWarningCooldownSeconds", 600, 0, 86400);
+
     public static final ModConfigSpec.BooleanValue ARRODES_MIRROR_ENABLED = BUILDER
-            .comment("Lets anyone summon Arrodes through a mirror (glass) by sneaking and right-clicking it with a signed book that holds Arrodes' honorific name.")
+            .comment("Lets anyone summon Arrodes through a mirror (glass) by sneaking and right-clicking it with a signed book that holds Arrodes' honorific name. The book is the price and is spent when he comes.")
             .define("arrodesMirrorEnabled", true);
 
     public static final ModConfigSpec.DoubleValue ARRODES_MIRROR_SUMMON_COST = BUILDER

@@ -73,6 +73,8 @@ public final class ArrodesHandler {
     private static final Map<UUID, Long> REMARK_BOOST = new ConcurrentHashMap<>();
     private static final Map<UUID, String> LAST_REMARK = new ConcurrentHashMap<>();
     private static final Set<UUID> REMARKED = ConcurrentHashMap.newKeySet();
+    private static final Map<UUID, Long> WARNED_AT = new ConcurrentHashMap<>();
+    private static final Map<UUID, String> WARNED_KIND = new ConcurrentHashMap<>();
 
     private ArrodesHandler() {
     }
@@ -331,15 +333,32 @@ public final class ArrodesHandler {
     }
 
     /**
-     * What Arrodes adds for an owner after an answer: a real danger nearby is always mentioned, anything else
-     * only now and then, never twice in a row, and not at all while the owner has asked for quiet.
+     * A danger is worth a word only once in a while: the same kind of danger again waits out the whole cooldown,
+     * and a different kind may speak after a third of it.
+     */
+    private static boolean mayWarn(UUID id, String kind, long now) {
+        Long last = WARNED_AT.get(id);
+        if (last == null) return true;
+        long gap = now - last;
+        if (gap < 0L) return true;
+        long cooldown = LotmmiConfig.ARRODES_WARNING_COOLDOWN_SECONDS.get() * 20L;
+        long wanted = kind.equals(WARNED_KIND.get(id)) ? cooldown : cooldown / 3L;
+        return gap >= wanted;
+    }
+
+    /**
+     * What Arrodes adds for an owner after an answer: a real danger nearby is mentioned now and then, not after
+     * every answer; anything else only occasionally, never twice in a row, and not at all while the owner has
+     * asked for quiet.
      */
     private static String ownerRemark(ServerPlayer player, long now) {
         UUID id = player.getUUID();
-        String warning = ArrodesParser.warning(player);
-        if (warning != null) {
+        ArrodesParser.Warning warning = ArrodesParser.warning(player);
+        if (warning != null && mayWarn(id, warning.kind(), now)) {
+            WARNED_AT.put(id, now);
+            WARNED_KIND.put(id, warning.kind());
             REMARKED.remove(id);
-            return warning;
+            return warning.text();
         }
         Long mute = REMARK_MUTE.get(id);
         if (mute != null && mute > now) return null;
@@ -541,6 +560,8 @@ public final class ArrodesHandler {
         UUID id = event.getEntity().getUUID();
         ArrodesParser.forget(id);
         ArrodesMirror.forget(id);
+        WARNED_AT.remove(id);
+        WARNED_KIND.remove(id);
     }
 
     @SubscribeEvent

@@ -20,6 +20,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -39,9 +40,12 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Summoning Arrodes through a mirror. Sneak and right-click glass while holding a signed book that holds
- * Arrodes' honorific name, and Arrodes answers there until the player's questions for the day are spent.
- * The glass itself is never changed: a session is only remembered here, with particles to show it.
+ * Summoning Arrodes through a mirror, as a small ritual. Sneak and right-click glass while holding a signed book
+ * that holds Arrodes' honorific name: Arrodes answers there until the player's questions for the day are spent,
+ * and the book is the price, spent when he comes. The glass is never changed. A session is only remembered here,
+ * with particles to show it: Arrodes leaves when the player walks away, when the questions run out or the glass
+ * sits idle, or when the glass is broken, and then it is plain glass again. While the session lasts, a right-click
+ * on that same glass opens the screen again without another book.
  */
 @EventBusSubscriber(modid = LotmMysticalItems.MOD_ID)
 public final class ArrodesMirror {
@@ -95,11 +99,17 @@ public final class ArrodesMirror {
 
     @SubscribeEvent
     public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
-        if (!event.getEntity().isShiftKeyDown()) return;
-        ItemStack stack = event.getItemStack();
-        if (!isHonorificBook(stack)) return;
+        if (event.getHand() != InteractionHand.MAIN_HAND) return;
         BlockPos pos = event.getPos();
         if (!isMirror(event.getLevel().getBlockState(pos))) return;
+
+        boolean sneaking = event.getEntity().isShiftKeyDown();
+        ItemStack stack = event.getItemStack();
+        boolean book = sneaking && isHonorificBook(stack);
+        // Arrodes is already here for this player: a plain click on the same glass opens the screen again.
+        // Sneaking with something in hand is left to the block, so building against the glass still works.
+        boolean reopen = !book && (!sneaking || stack.isEmpty()) && sessionAt(event.getEntity().getUUID(), event.getLevel().dimension(), pos);
+        if (!book && !reopen) return;
 
         // With the feature switched off the book behaves like any other book.
         if (!LotmmiConfig.ARRODES_MIRROR_ENABLED.get()) return;
@@ -114,13 +124,30 @@ public final class ArrodesMirror {
         MinecraftServer server = player.getServer();
         if (server == null) return;
 
+        summon(player, level, server, pos, ArrodesHandler.isOwner(player), book ? stack : null);
+    }
+
+    private static boolean sessionAt(UUID id, ResourceKey<Level> dimension, BlockPos pos) {
+        Session session = SESSIONS.get(id);
+        return session != null && session.dimension == dimension && session.pos.equals(pos);
+    }
+
+    /** The book is the price of the ritual: spent when Arrodes comes, never when he is refused. */
+    private static void pay(ServerPlayer player, ServerLevel level, BlockPos pos, ItemStack book, boolean owner) {
+        if (book == null) return;
+        if (!player.getAbilities().instabuild) book.shrink(1);
+        level.playSound(null, pos, SoundEvents.BOOK_PAGE_TURN, SoundSource.BLOCKS, 1.0F, 0.5F);
+        level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D, 14, 0.3D, 0.4D, 0.3D, 0.02D);
+        player.sendSystemMessage(ArrodesHandler.arrodes(ArrodesVoice.pick(owner ? ArrodesVoice.OWNER_PRICE : ArrodesVoice.PRICE, level.random)));
+    }
+
+    private static void summon(ServerPlayer player, ServerLevel level, MinecraftServer server, BlockPos pos, boolean owner, ItemStack book) {
         UUID id = player.getUUID();
-        boolean owner = ArrodesHandler.isOwner(player);
         GlobalPos here = GlobalPos.of(level.dimension(), pos);
 
         Session mine = SESSIONS.get(id);
         if (mine != null) {
-            // Already speaking through a mirror: clicking that same mirror again simply reopens it.
+            // Already speaking through a mirror: clicking that same glass again simply reopens it, and costs nothing.
             if (mine.dimension == level.dimension() && mine.pos.equals(pos)) {
                 mine.lastActivity = server.getTickCount();
                 ArrodesHandler.openMirrorMenu(player, owner, "...");
@@ -143,6 +170,8 @@ public final class ArrodesMirror {
             if (BeyonderData.getSpirituality(player) < cost) return;
             BeyonderData.reduceSpirituality(player, cost);
         }
+
+        pay(player, level, pos, book, owner);
 
         SESSIONS.put(id, new Session(level.dimension(), pos.immutable(), server.getTickCount()));
         OCCUPIED.put(here, id);

@@ -383,6 +383,12 @@ public final class ArrodesVoice {
     public static final List<String> OWNER_SUMMON_RULES = List.of(
             "Your loyal and humble servant, Arrodes, at your service. Great Master."
     );
+    public static final List<String> PRICE = List.of(
+            "The book is the price, and it is paid."
+    );
+    public static final List<String> OWNER_PRICE = List.of(
+            "Forgive your servant, Great Master. The ritual asks for a book, and the book is taken."
+    );
 
     public static final List<String> EXHAUSTED = List.of(
             "I have answered enough for one day, mortal. Come back when the sun has turned once more. Bye bye~ (^_^)/",

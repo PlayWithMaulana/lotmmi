@@ -151,9 +151,9 @@ public final class LotmmiConfig {
             .comment("When Arrodes punishes ill intent, the chance that it is a curse (Bad Luck, Weakness, Slowness, Darkness and Nausea, never lethal) instead of a lightning strike.")
             .defineInRange("arrodesCurseChance", 0.4D, 0.0D, 1.0D);
 
-    public static final ModConfigSpec.DoubleValue ARRODES_CHEST_CHANCE = BUILDER
-            .comment("Chance that a generated chest contains Arrodes. Extremely small by default. 0 turns it off.")
-            .defineInRange("arrodesChestChance", 0.0015D, 0.0D, 1.0D);
+    public static final ModConfigSpec.DoubleValue ARRODES_CHEST_RARITY = BUILDER
+            .comment("How often Arrodes turns up in generated chests, compared with the Staff of the Stars (which is found with the same roll: about 2.6% of chests). 1 = exactly as often as the Staff. Lower is rarer, 0 turns it off. It cannot be made more common than the Staff. This replaces the old arrodesChestChance setting, which is no longer read.")
+            .defineInRange("arrodesChestRarity", 1.0D, 0.0D, 1.0D);
 
     public static final ModConfigSpec.BooleanValue ARRODES_WARN_FIRST = BUILDER
             .comment("When a non-owner's question smells of ill intent, Arrodes warns them the first time (within about ten minutes) and only punishes the second. Tricks and loopholes are always punished at once.")

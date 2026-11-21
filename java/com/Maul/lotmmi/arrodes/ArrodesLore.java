@@ -214,6 +214,7 @@ final class ArrodesLore {
         for (Entry entry : ENTRIES) {
             if (entry.topic() == topic) lines.addAll(entry.lines());
         }
+        if (topic == Topic.ARTIFACT) lines.add(ArrodesArtifacts.askLine(ADDRESS));
         return fill(lines, address);
     }
 

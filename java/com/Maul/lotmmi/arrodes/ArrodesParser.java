@@ -73,7 +73,7 @@ public final class ArrodesParser {
         }
     }
 
-    private enum Intent { RECIPE, ABILITIES, SEQ_NAME, SOURCE, USES, STRUCTURE, NEARBY, UNIQUENESS, DEATH, PLAYER, MOB, APPRAISE, DANGER, ABOUT, NPC, LORE }
+    private enum Intent { RECIPE, ABILITIES, SEQ_NAME, SOURCE, USES, STRUCTURE, NEARBY, UNIQUENESS, DEATH, PLAYER, MOB, APPRAISE, DANGER, ABOUT, NPC, ARTIFACT, LORE }
 
     private record Context(Intent intent, String pathway, int sequence, long expires) {
     }
@@ -127,6 +127,10 @@ public final class ArrodesParser {
             nameTokens = new ArrayList<>(tokens);
             for (int position : ingredientHit.positions()) nameTokens.set(position, "_");
         }
+
+        // The same goes for a sealed artifact: "Sea God Scepter" is not a question about the Sea God.
+        ArrodesArtifacts.Artifact artifact = ingredientHit == null ? ArrodesArtifacts.find(tokens) : null;
+        if (artifact != null) nameTokens = ArrodesArtifacts.mask(tokens, artifact);
 
         PathwayMatch pathwayMatch = ArrodesKnowledge.findPathway(nameTokens);
         int sequence = ArrodesText.findSequence(tokens);
@@ -203,6 +207,7 @@ public final class ArrodesParser {
         Intent intent = null;
         if (aboutW && !explicitPathway && ingredient == null) intent = Intent.ABOUT;
         else if (npc != null) intent = Intent.NPC;
+        else if (artifact != null && ingredient == null) intent = Intent.ARTIFACT;
         else if (apprW) intent = Intent.APPRAISE;
         else if (apotheosisAsk) intent = Intent.LORE;
         else if (loreTopic != null && !explicitPathway && ingredient == null && target == null && !whereW && !sourceW && !closeW) intent = Intent.LORE;
@@ -291,6 +296,7 @@ public final class ArrodesParser {
             case DANGER -> owner ? danger(player, level) : Result.refuse(ArrodesVoice.pick(ArrodesVoice.DANGER_DENIED, level.random));
             case ABOUT -> about(owner, tokens, normalized);
             case NPC -> npc(npc, owner, level.random);
+            case ARTIFACT -> Result.answer(ArrodesArtifacts.describe(artifact, owner, address));
             case LORE -> lore(level, loreTopic, pathway == null ? sequence : -1, address);
         };
         if (result.kind() != Kind.CLARIFY) CONTEXT.remove(player.getUUID());

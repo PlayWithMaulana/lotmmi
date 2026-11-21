@@ -104,7 +104,7 @@ public final class ArrodesParser {
 
     public static Result parse(ServerPlayer player, String text, boolean owner) {
         MinecraftServer server = player.getServer();
-        if (server == null) return Result.refuse("The mirror is clouded.");
+        if (server == null) return Result.refuse("My sight is clouded.");
         ServerLevel level = player.serverLevel();
         long now = server.overworld().getGameTime();
 
@@ -563,7 +563,7 @@ public final class ArrodesParser {
             return Result.refuse(ArrodesVoice.pick(owner ? ArrodesVoice.OWNER_BEING_PROTECTED : ArrodesVoice.BEING_PROTECTED, server.overworld().random));
         }
         if (SefirotData.get(server).isInSefirot(target)) {
-            return Result.answer(name + " is hidden within a Sefirah Castle. The mirror finds nothing.");
+            return Result.answer(name + " is hidden within a Sefirah Castle. I find nothing.");
         }
 
         List<String> lines = new ArrayList<>();

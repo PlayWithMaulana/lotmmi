@@ -108,7 +108,7 @@ public final class ArrodesHandler {
         Long until = COOLDOWN.get(id);
         if (until != null && until > now && !PENDING.containsKey(id)) {
             long seconds = (until - now + 19L) / 20L;
-            player.displayClientMessage(Component.literal("The mirror is silent. Return in " + seconds + " seconds.")
+            player.displayClientMessage(Component.literal("I am silent for now. Return in " + seconds + " seconds.")
                     .withStyle(ChatFormatting.GRAY), true);
             return;
         }
@@ -162,7 +162,7 @@ public final class ArrodesHandler {
         Long until = COOLDOWN.get(id);
         if (until != null && until > now && !ArrodesMirror.hasSession(player)) {
             long seconds = (until - now + 19L) / 20L;
-            reply(player, ArrodesReplyPacket.KIND_NOTE, List.of("The mirror is silent. Return in " + seconds + " seconds."));
+            reply(player, ArrodesReplyPacket.KIND_NOTE, List.of("I am silent for now. Return in " + seconds + " seconds."));
             return;
         }
 
@@ -191,9 +191,7 @@ public final class ArrodesHandler {
         if (cost <= 0.0F || !BeyonderData.isBeyonder(player)) return true;
 
         if (BeyonderData.getSpirituality(player) < cost) {
-            String line = ArrodesVoice.pick(owner ? ArrodesVoice.OWNER_NO_SPIRITUALITY : ArrodesVoice.NO_SPIRITUALITY, player.serverLevel().random);
-            reply(player, ArrodesReplyPacket.KIND_NOTE, List.of(line));
-            player.sendSystemMessage(arrodes(line));
+            // Too exhausted to summon him: he does not answer at all.
             return false;
         }
         BeyonderData.reduceSpirituality(player, cost);
@@ -379,7 +377,7 @@ public final class ArrodesHandler {
 
     private static String lockedLine(boolean owner) {
         int seconds = LotmmiConfig.ARRODES_COOLDOWN_SECONDS.get();
-        return (owner ? "Forgive your servant, Great Master. The mirror must rest for " : "The mirror clouds over. It must rest for ")
+        return (owner ? "Forgive your servant, Great Master. I must rest for " : "I must rest for ")
                 + seconds + " seconds.";
     }
 

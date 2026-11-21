@@ -138,7 +138,6 @@ public final class ArrodesMirror {
         if (!player.getAbilities().instabuild) book.shrink(1);
         level.playSound(null, pos, SoundEvents.BOOK_PAGE_TURN, SoundSource.BLOCKS, 1.0F, 0.5F);
         level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D, 14, 0.3D, 0.4D, 0.3D, 0.02D);
-        player.sendSystemMessage(ArrodesHandler.arrodes(ArrodesVoice.pick(owner ? ArrodesVoice.OWNER_PRICE : ArrodesVoice.PRICE, level.random)));
     }
 
     private static void summon(ServerPlayer player, ServerLevel level, MinecraftServer server, BlockPos pos, boolean owner, ItemStack book) {

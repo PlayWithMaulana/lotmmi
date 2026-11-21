@@ -57,4 +57,15 @@ public class ArrodesItem extends Item {
             serverLevel.sendParticles(ParticleTypes.ASH, x, y + 1.5D, z, 4, 0.55D, 0.5D, 0.55D, 0.0D);
         }
     }
+
+    /**
+     * Keeps the held item still when only its data changes. Without this the hand dips and comes back up whenever the
+     * stack's data differs from the copy Minecraft last drew. Switching slots, or swapping it for a different item in the
+     * same hand, still plays the normal equip animation.
+     * (NeoForge 1.21.1: IItemExtension#shouldCauseReequipAnimation(ItemStack, ItemStack, boolean).)
+     */
+    @Override
+    public boolean shouldCauseReequipAnimation(ItemStack oldStack, ItemStack newStack, boolean slotChanged) {
+        return slotChanged || !ItemStack.isSameItem(oldStack, newStack);
+    }
 }

@@ -94,7 +94,10 @@ public final class ArrodesMirror {
         if (content == null) return false;
         StringBuilder text = new StringBuilder();
         for (var page : content.pages()) text.append(page.raw().getString()).append(' ');
-        return ArrodesText.squash(text.toString()).equals(HONORIFIC_KEY);
+        // A book the player wrote holds the honorific alone. The ritual book from LOTMCraft's random loot holds it
+        // among its candle and sacrifices, so the honorific only has to appear in the text, line for line.
+        String squashed = ArrodesText.squash(text.toString());
+        return squashed.equals(HONORIFIC_KEY) || (" " + squashed + " ").contains(" " + HONORIFIC_KEY + " ");
     }
 
     @SubscribeEvent

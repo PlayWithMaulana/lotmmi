@@ -1,0 +1,43 @@
+{
+  "id": "lotmmi:arrodes_silvered_glass",
+  "discovered_from": "lotmmi:silvered_glass_liturgy",
+  "candle": "minecraft:light_gray_candle",
+  "sacrifices": [
+    { "item": "minecraft:glass_pane", "count": 4 },
+    { "item": "minecraft:amethyst_shard", "count": 2 },
+    { "item": "minecraft:ender_eye", "count": 1 }
+  ],
+  "honorific": {
+    "lines": [
+      "Eyes that watch All Living Beings",
+      "The Stigmata from the Primordial Land",
+      "The Omniscient One who serves The Fool",
+      "The Great Arrodes"
+    ]
+  },
+  "conditions": { "min_sequence": 10 },
+  "particle_color": { "r": 0.75, "g": 0.8, "b": 0.9 },
+  "book_color": "GRAY",
+  "duration_ticks": 250,
+  "result": {
+    "type": "potion_effect",
+    "params": {
+      "effects": [
+        {
+          "id": "minecraft:night_vision",
+          "duration_ticks": 6000,
+          "amplifier": 0,
+          "target": "self",
+          "max_distance": -1
+        },
+        {
+          "id": "minecraft:luck",
+          "duration_ticks": 6000,
+          "amplifier": 0,
+          "target": "self",
+          "max_distance": -1
+        }
+      ]
+    }
+  }
+}
